@@ -30,13 +30,21 @@ It means much things can be writing...(Practice writing article)
 
 # TODO
 [v] Handshake: Basic (5.2. Handshake)
+
 [ ] Handshake: Digest
+
 [ ] Define RTMP context
+
 [ ] Chunking (5.3. Chunking)
+
 [ ] Protocol Control Message (5.4. Protocol Control Messages)
+
 [ ] RTMP Message (6. RTMP Message Formats)
+
 [ ] AMF0/AMF3
+
 [ ] RTMP Command Messages (7. RTMP Command Messages)
+
 [ ] Undocumented specifications(ex. FCPublish, releaseStream, etc.)
 
 # References
