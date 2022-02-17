@@ -45,9 +45,9 @@ fn chunk_process(mut stream: &TcpStream) {
                 return
             }
             Ok(n) => {
-            unsafe { buf.set_len(n) }
+                unsafe { buf.set_len(n) }
 
-            ctx.buffering(buf.as_slice());
+                ctx.buffering(buf.as_slice());
             }
             _ => {}
         }
@@ -63,8 +63,8 @@ fn chunk_process(mut stream: &TcpStream) {
                             if chunk_size as usize > buf.capacity() {
                                 buf.reserve_exact((chunk_size as usize) - buf.capacity());
                             }
-                },
-                _ => {}
+                        },
+                        _ => {}
                     }
                 }
                 Err(e) => {

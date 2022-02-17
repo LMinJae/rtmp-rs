@@ -88,9 +88,9 @@ impl Chunk {
                         if 0b10 == fmt {
                             self.cs_headers.insert(cs_id, HeaderMessage {
                                 timestamp,
-                            length: None,
-                            type_id: None,
-                            stream_id: None
+                                length: None,
+                                type_id: None,
+                                stream_id: None
                             })
                         } else {
                             let length = {
@@ -99,7 +99,7 @@ impl Chunk {
                                     n = (n << 8) | (x as u32);
                                 }
                                 n
-                        };
+                            };
                             let type_id = self.buffer.get_u8();
 
                             if 0b00 != fmt {
@@ -157,10 +157,10 @@ impl Chunk {
                                 msg: MessageData::SetChunkSize { chunk_size },
                             }))
                         }
-                _ => {}
+                        _ => {}
+                    }
+                }
             }
-        }
-    }
         }
     }
 }
