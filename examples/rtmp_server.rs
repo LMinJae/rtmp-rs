@@ -13,8 +13,11 @@ fn handshaking(mut stream: TcpStream) {
     loop {
         if let Ok(n) = stream.read(&mut buf) {
             unsafe { buf.set_len(n) }
+
+            ctx.buffering(buf.as_slice());
         };
-        match ctx.consume(buf.as_slice()) {
+
+        match ctx.consume() {
             Ok(wr) => {
                 let _ = stream.write(wr.as_slice());
             },

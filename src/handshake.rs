@@ -33,9 +33,11 @@ impl Handshake {
         }
     }
 
-    pub fn consume(&mut self, buf: &[u8]) -> Result<Vec<u8>, HandshakeError> {
-        self.buffer.extend(buf);
+    pub fn buffering(&mut self, buf: &[u8]) {
+        self.buffer.extend(buf)
+    }
 
+    pub fn consume(&mut self) -> Result<Vec<u8>, HandshakeError> {
         match self.state {
             State::Uninitialized => self.generate_p0_p1(),
             State::VersionSent => self.stage_p0_p1(),
