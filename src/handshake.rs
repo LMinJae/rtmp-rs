@@ -29,7 +29,7 @@ impl Handshake {
             state: State::Uninitialized,
             buffer: VecDeque::with_capacity(1537),
             time: 0,
-            p1: Vec::<u8>::with_capacity(1528),
+            p1: Vec::with_capacity(1528),
         }
     }
 
