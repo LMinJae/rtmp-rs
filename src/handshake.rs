@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::time::SystemTime;
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BufMut};
 
 #[derive(Debug)]
 pub enum HandshakeError {
@@ -120,9 +120,9 @@ impl Handshake {
         }
 
         // Time
-        let time = self.buffer.get_u32();
+        let _time = self.buffer.get_u32();
         // Time2
-        let time2 = self.buffer.get_u32();
+        let _time2 = self.buffer.get_u32();
 
         for (i, n) in self.buffer.drain(..1528).enumerate() {
             if n != self.p1[i] {
