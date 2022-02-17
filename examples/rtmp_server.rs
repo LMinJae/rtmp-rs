@@ -25,6 +25,7 @@ fn handshaking(mut stream: &TcpStream) {
             Err(HandshakeError::Done) => break,
             Err(e) => {
                 eprintln!("Error while handshaking: {:?}", e);
+                return
             }
         }
 
