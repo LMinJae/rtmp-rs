@@ -3,7 +3,7 @@ use std::net::{TcpListener, TcpStream};
 
 use rtmp::handshake::{Handshake, HandshakeError};
 
-fn handshaking(mut stream: TcpStream) {
+fn handshaking(mut stream: &TcpStream) {
     println!("Handshake Begin");
 
     let mut ctx = Handshake::new();
@@ -33,8 +33,8 @@ fn handshaking(mut stream: TcpStream) {
     println!("Handshake Done");
 }
 
-fn handle_client(stream: TcpStream) {
-    handshaking(stream);
+fn handle_client(mut stream: TcpStream) {
+    handshaking(&mut stream);
 }
 
 fn main() -> std::io::Result<()> {
