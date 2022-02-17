@@ -8,7 +8,7 @@ fn handshaking(mut stream: TcpStream) {
 
     let mut ctx = Handshake::new();
 
-    let mut buf = Vec::<u8>::with_capacity(1537);
+    let mut buf = Vec::<u8>::with_capacity(1536);
     buf.insert(0, 0);    // 1 == buf.len(); for reading version
     loop {
         if let Ok(n) = stream.read(&mut buf) {
