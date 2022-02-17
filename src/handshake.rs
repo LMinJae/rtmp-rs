@@ -115,7 +115,7 @@ impl Handshake {
     }
 
     fn stage_p2(&mut self) -> Result<Vec<u8>, HandshakeError> {
-        if 1536 == self.buffer.len() {
+        if 1536 != self.buffer.len() {
             return Ok(Vec::<u8>::new())
         }
 
