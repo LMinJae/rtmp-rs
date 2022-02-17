@@ -34,7 +34,6 @@ fn handshaking(mut stream: &TcpStream) {
     println!("Handshake Done");
 }
 
-
 fn chunk_process(mut stream: &TcpStream) {
     let mut ctx = rtmp::chunk::Chunk::new();
 
@@ -57,15 +56,8 @@ fn chunk_process(mut stream: &TcpStream) {
                 Ok(None) => {
                     break
                 }
-                Ok(Some(chunk)) => {
-                    match chunk.msg {
-                        rtmp::chunk::MessageData::SetChunkSize { chunk_size } => {
-                            if chunk_size as usize > buf.capacity() {
-                                buf.reserve_exact((chunk_size as usize) - buf.capacity());
-                            }
-                        },
-                        _ => {}
-                    }
+                Ok(Some(msg)) => {
+                    eprintln!("{:?}", msg)
                 }
                 Err(e) => {
                     eprintln!("Error while chunk processing: {:?}", e);

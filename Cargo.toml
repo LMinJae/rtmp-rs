@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 wyrng = { path = "cargos/wyrng", version = "0.1.0" }
+amf = { path = "cargos/amf", version = "0.1.0", features = ["rtmp"] }
 bytes = "1.1.0"
