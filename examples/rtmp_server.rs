@@ -1,13 +1,12 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
-use rtmp::handshake::{Handshake, HandshakeError};
-use rtmp::chunk::{Chunk, MessageData};
+use rtmp;
 
 fn handshaking(mut stream: &TcpStream) {
     println!("Handshake Begin");
 
-    let mut ctx = Handshake::new();
+    let mut ctx = rtmp::handshake::Handshake::new();
 
     let mut buf = Vec::<u8>::with_capacity(1536);
     buf.insert(0, 0);    // 1 == buf.len(); for reading version
@@ -22,7 +21,7 @@ fn handshaking(mut stream: &TcpStream) {
             Ok(wr) => {
                 let _ = stream.write(wr.as_slice());
             },
-            Err(HandshakeError::Done) => break,
+            Err(rtmp::handshake::HandshakeError::Done) => break,
             Err(e) => {
                 eprintln!("Error while handshaking: {:?}", e);
                 return
@@ -37,7 +36,7 @@ fn handshaking(mut stream: &TcpStream) {
 
 
 fn chunk_process(mut stream: &TcpStream) {
-    let mut ctx = Chunk::new();
+    let mut ctx = rtmp::chunk::Chunk::new();
 
     let mut buf = vec!(0_u8, 128);
     loop {
@@ -60,7 +59,7 @@ fn chunk_process(mut stream: &TcpStream) {
                 }
                 Ok(Some(chunk)) => {
                     match chunk.msg {
-                        MessageData::SetChunkSize { chunk_size } => {
+                        rtmp::chunk::MessageData::SetChunkSize { chunk_size } => {
                             if chunk_size as usize > buf.capacity() {
                                 buf.reserve_exact((chunk_size as usize) - buf.capacity());
                             }
