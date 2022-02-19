@@ -74,12 +74,12 @@ pub enum Message {
 
     UserControl(UserControlEvent),
 
-    Command(amf::Value),
-    Data(amf::Value),
-    SharedObject(amf::Value),
+    Command { cs_id: u32, payload: amf::Value },
+    Data { cs_id: u32, payload: amf::Value },
+    SharedObject { cs_id: u32, payload: amf::Value },
 
-    Audio(BytesMut),
-    Video(BytesMut),
+    Audio { cs_id: u32, payload: BytesMut },
+    Video { cs_id: u32, payload: BytesMut },
 
     Aggregate(Vec<Message>),
 }

@@ -166,7 +166,7 @@ impl Chunk {
                 }
                 let msg =  self.cs_headers.get(&cs_id).unwrap().clone();
 
-                let rst = self.process_message(msg.header.clone(), msg.payload.clone());
+                let rst = self.process_message(cs_id, msg.header.clone(), msg.payload.clone());
 
                 self.state = State::Uninitialized;
                 return rst
@@ -174,7 +174,7 @@ impl Chunk {
         }
     }
 
-    fn process_message(&mut self, header: message::Header, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
+    fn process_message(&mut self, cs_id: u32, header: message::Header, payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
         match header.type_id {
             message::msg_type::SET_CHUNK_SIZE => self.handle_set_chunk_size(payload),
             message::msg_type::ABORT => self.handle_abort(payload),
@@ -189,7 +189,7 @@ impl Chunk {
                     rst.append(&mut vec!(v));
                 }
 
-                Ok(Some(message::Message::Command(amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)))))
+                Ok(Some(message::Message::Command { cs_id, payload: amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)) }))
             }
             message::msg_type::COMMAND_AMF3 => {
                 let mut reader = payload.reader();
@@ -198,7 +198,7 @@ impl Chunk {
                     rst.append(&mut vec!(v));
                 }
 
-                Ok(Some(message::Message::Command(amf::Value::Amf3Value(amf::amf3::Value::Array(rst)))))
+                Ok(Some(message::Message::Command { cs_id, payload: amf::Value::Amf3Value(amf::amf3::Value::Array(rst)) }))
             }
             message::msg_type::DATA_AMF0 => {
                 let mut reader = payload.reader();
@@ -207,7 +207,7 @@ impl Chunk {
                     rst.append(&mut vec!(v));
                 }
 
-                Ok(Some(message::Message::Data(amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)))))
+                Ok(Some(message::Message::Data { cs_id, payload: amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)) }))
             }
             message::msg_type::DATA_AMF3 => {
                 let mut reader = payload.reader();
@@ -216,7 +216,7 @@ impl Chunk {
                     rst.append(&mut vec!(v));
                 }
 
-                Ok(Some(message::Message::Data(amf::Value::Amf3Value(amf::amf3::Value::Array(rst)))))
+                Ok(Some(message::Message::Data { cs_id, payload: amf::Value::Amf3Value(amf::amf3::Value::Array(rst)) }))
             }
             message::msg_type::SHARED_OBJECT_AMF0 => {
                 let mut reader = payload.reader();
@@ -225,7 +225,7 @@ impl Chunk {
                     rst.append(&mut vec!(v));
                 }
 
-                Ok(Some(message::Message::SharedObject(amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)))))
+                Ok(Some(message::Message::SharedObject{ cs_id, payload: amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)) }))
             }
             message::msg_type::SHARED_OBJECT_AMF3 => {
                 let mut reader = payload.reader();
@@ -234,15 +234,15 @@ impl Chunk {
                     rst.append(&mut vec!(v));
                 }
 
-                Ok(Some(message::Message::SharedObject(amf::Value::Amf3Value(amf::amf3::Value::Array(rst)))))
+                Ok(Some(message::Message::SharedObject{ cs_id, payload: amf::Value::Amf3Value(amf::amf3::Value::Array(rst)) }))
             }
             message::msg_type::AUDIO => {
-                Ok(Some(message::Message::Audio(payload)))
+                Ok(Some(message::Message::Audio { cs_id, payload }))
             }
             message::msg_type::VIDEO => {
-                Ok(Some(message::Message::Video(payload)))
+                Ok(Some(message::Message::Video { cs_id, payload }))
             }
-            message::msg_type::AGGREGATE => self.handle_aggregate(payload),
+            message::msg_type::AGGREGATE => self.handle_aggregate(cs_id, payload),
             _ => {
                 eprintln!("{:?} {:?} {:02x?}", self.state, header, payload);
 
@@ -386,7 +386,7 @@ impl Chunk {
         }
     }
 
-    fn handle_aggregate(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
+    fn handle_aggregate(&mut self, cs_id: u32, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
         let mut rst = Vec::<message::Message>::new();
         while 0 < payload.len() {
             let sub_h = message::Header {
@@ -414,7 +414,7 @@ impl Chunk {
 
             let _back_pointer = payload.get_u32();
 
-            match self.process_message(sub_h, data) {
+            match self.process_message(cs_id, sub_h, data) {
                 Ok(Some(m)) => {
                     rst.append(&mut vec!(m));
                 },
