@@ -64,20 +64,7 @@ impl Chunk {
                     return Ok(None)
                 }
 
-                let n = self.rd_buf.get_u8();
-                self.state = State::BasicHeader {
-                    fmt: n >> 6,
-                    cs_id: {
-                        let mut i = 0b00111111 & n as u32;
-                        if 0b111111 == n || 0 == n {
-                            i = (self.rd_buf.get_u8() as u32) + 64
-                        }
-                        if 0b111111 == n {
-                            i |= (self.rd_buf.get_u8() as u32) << 8;
-                        }
-                        i
-                    },
-                };
+                self.parse_basic_header()
             }
 
             if let State::BasicHeader { fmt, cs_id } = self.state {
@@ -279,6 +266,23 @@ impl Chunk {
     pub fn push(&mut self, _cs_id: u32, _msg: message::Message) {
         // TODO
         unimplemented!()
+    }
+
+    fn parse_basic_header(&mut self) {
+        let n = self.rd_buf.get_u8();
+        self.state = State::BasicHeader {
+            fmt: n >> 6,
+            cs_id: {
+                let mut i = 0b00111111 & n as u32;
+                if 0b111111 == n || 0 == n {
+                    i = (self.rd_buf.get_u8() as u32) + 64
+                }
+                if 0b111111 == n {
+                    i |= (self.rd_buf.get_u8() as u32) << 8;
+                }
+                i
+            },
+        };
     }
 
     fn handle_set_chunk_size(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
