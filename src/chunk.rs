@@ -76,15 +76,21 @@ impl Chunk {
                     return Ok(None)
                 }
 
-                if 0b11 != fmt {
-                    if let Some(msg) = self.cs_headers.get_mut(&cs_id) {
-                        let timestamp = {
+                macro_rules! read_u24 {
+                    () => {
+                        {
                             let mut v = 0_u32;
                             for x in self.rd_buf.split_to(3) {
                                 v = v << 8 | (x as u32)
                             }
                             v
-                        };
+                        }
+                    };
+                }
+
+                if 0b11 != fmt {
+                    if let Some(msg) = self.cs_headers.get_mut(&cs_id) {
+                        let timestamp = read_u24!();
                         if message::TIMESTAMP_MAX > timestamp {
                             if 0b00 == fmt {
                                 msg.header.timestamp = timestamp;
@@ -94,13 +100,7 @@ impl Chunk {
                         }
 
                         if 0b10 != fmt {
-                            let length = {
-                                let mut v = 0_u32;
-                                for x in self.rd_buf.split_to(3) {
-                                    v = v << 8 | (x as u32)
-                                }
-                                v
-                            };
+                            let length = read_u24!();
 
                             msg.header.length = length;
                             if length as usize > msg.payload.capacity() {
@@ -133,20 +133,8 @@ impl Chunk {
                         }
                     } else if 0x00 == fmt {
                         let header = message::Header {
-                            timestamp: {
-                                let mut v = 0_u32;
-                                for x in self.rd_buf.split_to(3) {
-                                    v = v << 8 | (x as u32)
-                                }
-                                v
-                            },
-                            length: {
-                                let mut v = 0_u32;
-                                for x in self.rd_buf.split_to(3) {
-                                    v = v << 8 | (x as u32)
-                                }
-                                v
-                            },
+                            timestamp: read_u24!(),
+                            length: read_u24!(),
                             type_id: self.rd_buf.get_u8(),
                             stream_id: self.rd_buf.get_u32(),
                             timestamp_delta: None,
