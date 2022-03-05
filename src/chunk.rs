@@ -152,19 +152,24 @@ impl Chunk {
                 if let Some(msg) = self.cs_headers.get_mut(&cs_id) {
                     let length = msg.header.length as usize;
 
-                    let left = min(self.in_chunk_size as usize, length - msg.payload.len());
+                    let left = min(self.in_chunk_size as usize - 1, length - msg.payload.len());
                     if left > self.rd_buf.len() {
                         return Ok(None)
                     }
                     msg.payload.put(self.rd_buf.split_to(left));
 
                     if msg.payload.len() != length {
+                        self.state = State::Uninitialized;
                         return Ok(None)
                     }
                 }
                 let msg =  self.cs_headers.get(&cs_id).unwrap().clone();
 
                 let rst = self.process_message(cs_id, msg.header.clone(), msg.payload.clone());
+
+                if let Some(msg) = self.cs_headers.get_mut(&cs_id) {
+                    msg.payload.clear()
+                }
 
                 self.state = State::Uninitialized;
                 return rst
@@ -237,7 +242,7 @@ impl Chunk {
             return Err(ChunkError::WrongInput)
         }
 
-        self.in_chunk_size = chunk_size;
+        self.in_chunk_size = chunk_size + 1;
         if chunk_size as usize > self.rd_buf.capacity() {
             self.rd_buf.reserve((chunk_size as usize) - self.rd_buf.capacity())
         }
