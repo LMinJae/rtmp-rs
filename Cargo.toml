@@ -7,5 +7,22 @@ edition = "2021"
 
 [dependencies]
 wyrng = { path = "cargos/wyrng", version = "0.1.0" }
-amf = { path = "cargos/amf", version = "0.1.0", features = ["rtmp"] }
 bytes = "1.1.0"
+
+[dependencies.amf]
+path = "cargos/amf"
+version = "0.1.0"
+default-features = false
+features = [
+    "amf3-integer",
+    "amf3-double",
+    "amf3-string",
+    "amf3-object",
+    "amf0-number",
+    "amf0-boolean",
+    "amf0-string",
+    "amf0-object",
+
+    "amf3-array",
+    "amf0-strict_array",
+]
