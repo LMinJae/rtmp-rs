@@ -189,15 +189,6 @@ impl Chunk {
 
                 Ok(Some(message::Message::Command { cs_id, payload: amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)) }))
             }
-            message::msg_type::COMMAND_AMF3 => {
-                let mut reader = payload.reader();
-                let mut rst = Vec::<amf::amf3::Value>::new();
-                while let Ok(v) = amf::amf3::decoder::from_bytes(&mut reader) {
-                    rst.append(&mut vec!(v));
-                }
-
-                Ok(Some(message::Message::Command { cs_id, payload: amf::Value::Amf3Value(amf::amf3::Value::Array(rst)) }))
-            }
             message::msg_type::DATA_AMF0 => {
                 let mut reader = payload.reader();
                 let mut rst = Vec::<amf::amf0::Value>::new();
@@ -206,33 +197,6 @@ impl Chunk {
                 }
 
                 Ok(Some(message::Message::Data { cs_id, payload: amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)) }))
-            }
-            message::msg_type::DATA_AMF3 => {
-                let mut reader = payload.reader();
-                let mut rst = Vec::<amf::amf3::Value>::new();
-                while let Ok(v) = amf::amf3::decoder::from_bytes(&mut reader) {
-                    rst.append(&mut vec!(v));
-                }
-
-                Ok(Some(message::Message::Data { cs_id, payload: amf::Value::Amf3Value(amf::amf3::Value::Array(rst)) }))
-            }
-            message::msg_type::SHARED_OBJECT_AMF0 => {
-                let mut reader = payload.reader();
-                let mut rst = Vec::<amf::amf0::Value>::new();
-                while let Ok(v) = amf::amf0::decoder::from_bytes(&mut reader) {
-                    rst.append(&mut vec!(v));
-                }
-
-                Ok(Some(message::Message::SharedObject{ cs_id, payload: amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)) }))
-            }
-            message::msg_type::SHARED_OBJECT_AMF3 => {
-                let mut reader = payload.reader();
-                let mut rst = Vec::<amf::amf3::Value>::new();
-                while let Ok(v) = amf::amf3::decoder::from_bytes(&mut reader) {
-                    rst.append(&mut vec!(v));
-                }
-
-                Ok(Some(message::Message::SharedObject{ cs_id, payload: amf::Value::Amf3Value(amf::amf3::Value::Array(rst)) }))
             }
             message::msg_type::AUDIO => {
                 Ok(Some(message::Message::Audio { cs_id, payload }))
