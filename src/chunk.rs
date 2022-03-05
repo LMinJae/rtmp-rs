@@ -35,6 +35,8 @@ pub struct Chunk {
     rd_buf: BytesMut,
     wr_buf: BytesMut,
     cs_headers: HashMap<u32, message::MessagePacket>,
+    bytes_in: u32,
+    bytes_in_sent: u32,
 }
 
 impl Chunk {
@@ -47,12 +49,19 @@ impl Chunk {
             limit_type: LimitType::Dynamic,
             rd_buf: BytesMut::with_capacity(128),
             wr_buf: BytesMut::with_capacity(128),
-            cs_headers: HashMap::new(),
+            cs_headers: HashMap::with_capacity(4),
+            bytes_in: 0,
+            bytes_in_sent: 0,
         }
     }
 
     pub fn buffering(&mut self, buf: &[u8]) {
-        self.rd_buf.extend(buf)
+        self.rd_buf.extend(buf);
+        self.bytes_in += buf.len() as u32;
+        if self.bytes_in > self.bytes_in_sent + self.window_size / 10 {
+            self.bytes_in_sent = self.bytes_in;
+            self.push(2, message::Message::Ack { sequence_number: self.bytes_in })
+        }
     }
 
     pub fn poll(&mut self) -> Result<Option<message::Message>, ChunkError> {
