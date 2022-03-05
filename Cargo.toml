@@ -18,6 +18,6 @@ features = [
     "amf0-boolean",
     "amf0-string",
     "amf0-object",
-
+    "amf0-ecma_array",
     "amf0-strict_array",
 ]

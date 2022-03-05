@@ -33,7 +33,7 @@ pub struct Chunk {
     window_size: u32,
     limit_type: LimitType,
     rd_buf: BytesMut,
-    wr_buf: BytesMut,
+    pub wr_buf: BytesMut,
     cs_headers: HashMap<u32, message::MessagePacket>,
     bytes_in: u32,
     bytes_in_sent: u32,
@@ -186,7 +186,7 @@ impl Chunk {
         }
     }
 
-    fn process_message(&mut self, cs_id: u32, header: message::Header, payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
+    fn process_message(&mut self, cs_id: u32, header: message::Header, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
         match header.type_id {
             message::msg_type::SET_CHUNK_SIZE => self.handle_set_chunk_size(payload),
             message::msg_type::ABORT => self.handle_abort(payload),
@@ -196,36 +196,212 @@ impl Chunk {
             message::msg_type::USER_CONTROL => self.handle_user_control(payload),
             message::msg_type::COMMAND_AMF0 => {
                 let mut reader = payload.reader();
-                let mut rst = Vec::<amf::amf0::Value>::new();
+                let mut rst = amf::Array::<amf::Value>::new();
                 while let Ok(v) = amf::amf0::decoder::from_bytes(&mut reader) {
-                    rst.append(&mut vec!(v));
+                    rst.append(&mut vec!(amf::Value::Amf0Value(v)));
                 }
 
-                Ok(Some(message::Message::Command { cs_id, payload: amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)) }))
+                Ok(Some(message::Message::Command { payload: rst }))
             }
             message::msg_type::DATA_AMF0 => {
                 let mut reader = payload.reader();
-                let mut rst = Vec::<amf::amf0::Value>::new();
+                let mut rst = amf::Array::<amf::Value>::new();
                 while let Ok(v) = amf::amf0::decoder::from_bytes(&mut reader) {
-                    rst.append(&mut vec!(v));
+                    rst.append(&mut vec!(amf::Value::Amf0Value(v)));
                 }
 
-                Ok(Some(message::Message::Data { cs_id, payload: amf::Value::Amf0Value(amf::amf0::Value::StrictArray(rst)) }))
+                Ok(Some(message::Message::Data { payload: rst }))
             }
             message::msg_type::AUDIO => {
-                Ok(Some(message::Message::Audio { cs_id, payload }))
+                Ok(Some(message::Message::Audio { control: payload.get_u8(), payload }))
             }
             message::msg_type::VIDEO => {
-                Ok(Some(message::Message::Video { cs_id, payload }))
+                Ok(Some(message::Message::Video { control: payload.get_u8(), payload }))
             }
             message::msg_type::AGGREGATE => self.handle_aggregate(cs_id, payload),
             id => Ok(Some(message::Message::Unknown { id, payload}))
         }
     }
 
-    pub fn push(&mut self, _cs_id: u32, _msg: message::Message) {
-        // TODO
-        unimplemented!()
+    pub fn push(&mut self, cs_id: u32, msg: message::Message) {
+        match msg {
+            message::Message::SetChunkSize { chunk_size } => {
+                self.out_chunk_size = chunk_size + 1;
+
+                let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
+
+                // Basic header
+                if 64 > cs_id {
+                    buf.put_u8(0b00000000 | (cs_id) as u8)
+                } else {
+                    let tmp = cs_id - 64;
+                    /*  */ if 319 > cs_id {
+                        buf.put_u8(0b00000000);
+                        buf.put_u8(tmp as u8);
+                    } else {
+                        buf.put_u8(0b00111111);
+                        buf.put_u16(tmp as u16);
+                    }
+                }
+
+                // Chunk Message Header - Type 0
+                // timestamp + message length(0)
+                buf.put_u32(0);
+                // message length(1..2)
+                buf.put_u16(4);
+                // message type_id
+                buf.put_u8(message::msg_type::SET_CHUNK_SIZE);
+                // message stream id
+                buf.put_u32(0);
+
+                // Body
+                buf.put_i32(chunk_size);
+
+                self.wr_buf.put(buf);
+            }
+            message::Message::Ack { sequence_number } => {
+                let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
+
+                // Basic header
+                if 64 > cs_id {
+                    buf.put_u8(0b01000000 | (cs_id) as u8)
+                } else {
+                    let tmp = cs_id - 64;
+                    /*  */ if 319 > cs_id {
+                        buf.put_u8(0b01000000);
+                        buf.put_u8(tmp as u8);
+                    } else {
+                        buf.put_u8(0b01111111);
+                        buf.put_u16(tmp as u16);
+                    }
+                }
+
+                // Chunk Message Header - Type 1
+                // timestamp + message length(0)
+                buf.put_u32(0);
+                // message length(1..2)
+                buf.put_u16(4);
+                // message type_id
+                buf.put_u8(message::msg_type::ACK);
+
+                // Body
+                buf.put_u32(sequence_number);
+
+                self.wr_buf.put(buf);
+            }
+            message::Message::WindowAckSize { ack_window_size } => {
+                let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
+
+                // Basic header
+                if 64 > cs_id {
+                    buf.put_u8(0b00000000 | (cs_id) as u8)
+                } else {
+                    let tmp = cs_id - 64;
+                    /*  */ if 319 > cs_id {
+                        buf.put_u8(0b00000000);
+                        buf.put_u8(tmp as u8);
+                    } else {
+                        buf.put_u8(0b00111111);
+                        buf.put_u16(tmp as u16);
+                    }
+                }
+
+                // Chunk Message Header - Type 0
+                // timestamp + message length(0)
+                buf.put_u32(0);
+                // message length(1..2)
+                buf.put_u16(4);
+                // message type_id
+                buf.put_u8(message::msg_type::WINDOW_ACK_SIZE);
+                // message stream id
+                buf.put_u32(0);
+
+                // Body
+                buf.put_u32(ack_window_size);
+
+                self.wr_buf.put(buf);
+            }
+            message::Message::SetPeerBandwidth { ack_window_size, limit_type } => {
+                let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
+
+                // Basic header
+                if 64 > cs_id {
+                    buf.put_u8(0b00000000 | (cs_id) as u8)
+                } else {
+                    let tmp = cs_id - 64;
+                    /*  */ if 319 > cs_id {
+                        buf.put_u8(0b00000000);
+                        buf.put_u8(tmp as u8);
+                    } else {
+                        buf.put_u8(0b00111111);
+                        buf.put_u16(tmp as u16);
+                    }
+                }
+
+                // Chunk Message Header - Type 0
+                // timestamp + message length(0)
+                buf.put_u32(0);
+                // message length(1..2)
+                buf.put_u16(5);
+                // message type_id
+                buf.put_u8(message::msg_type::SET_PEER_BANDWIDTH);
+                // message stream id
+                buf.put_u32(0);
+
+                // Body
+                buf.put_u32(ack_window_size);
+                buf.put_u8(match limit_type {
+                    LimitType::Hard => 0,
+                    LimitType::Soft => 1,
+                    _ => 2
+                });
+
+                self.wr_buf.put(buf);
+            }
+            message::Message::Command { payload } => {
+                let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
+
+                // Basic header
+                if 64 > cs_id {
+                    buf.put_u8(0b00000000 | (cs_id) as u8)
+                } else {
+                    let tmp = cs_id - 64;
+                    /*  */ if 319 > cs_id {
+                        buf.put_u8(0b00000000);
+                        buf.put_u8(tmp as u8);
+                    } else {
+                        buf.put_u8(0b00111111);
+                        buf.put_u16(tmp as u16);
+                    }
+                }
+
+                // Chunk Message Header - Type 0
+                // timestamp
+                buf.put_u16(0);
+                buf.put_u8(0);
+                // message length
+                let mut cmd = Vec::<u8>::new();
+                for i in payload {
+                    let amf::Value::Amf0Value(v) = i;
+                    amf::amf0::encoder::to_bytes(&mut cmd, &v).unwrap();
+                }
+                let len = cmd.len();
+                buf.put_u16((len >> 8) as u16);
+                buf.put_u8((len & 0xff) as u8);
+                // message type_id
+                buf.put_u8(message::msg_type::COMMAND_AMF0);
+                // message stream id
+                buf.put_u32(0);
+
+                // Body
+                buf.put(cmd.as_slice());
+
+                self.wr_buf.put(buf);
+            }
+            _ => {
+                unimplemented!()
+            }
+        }
     }
 
     fn parse_basic_header(&mut self) {
