@@ -8,9 +8,7 @@ use crate::message;
 #[derive(Debug)]
 pub enum ChunkError {
     UnknownChunkStream,
-    UnknownLimitType(u8),
-    UnknownEvent(u16),
-    UnknownCommand,
+    UnknownEvent(message::UserControlEvent),
     WrongInput,
 }
 
@@ -243,11 +241,7 @@ impl Chunk {
                 Ok(Some(message::Message::Video { cs_id, payload }))
             }
             message::msg_type::AGGREGATE => self.handle_aggregate(cs_id, payload),
-            _ => {
-                eprintln!("{:?} {:?} {:02x?}", self.state, header, payload);
-
-                Ok(None)
-            }
+            id => Ok(Some(message::Message::Unknown { id, payload}))
         }
     }
 
@@ -320,7 +314,7 @@ impl Chunk {
                 0 => LimitType::Hard,
                 1 => LimitType::Soft,
                 2 => LimitType::Dynamic,
-                n => return Err(ChunkError::UnknownLimitType(n))
+                n => LimitType::Unknown(n)
             }
         };
 
@@ -382,7 +376,7 @@ impl Chunk {
 
                 Ok(Some(message::Message::UserControl(message::UserControlEvent::PingResponse { timestamp })))
             }
-            _ => return Err(ChunkError::UnknownEvent(event_type))
+            id =>  Err(ChunkError::UnknownEvent(message::UserControlEvent::Unknown {id, payload}))
         }
     }
 
@@ -432,4 +426,5 @@ pub enum LimitType {
     Hard,
     Soft,
     Dynamic,
+    Unknown(u8)
 }

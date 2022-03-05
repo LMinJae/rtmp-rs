@@ -62,6 +62,7 @@ pub enum UserControlEvent {
     StreamIsRecorded { stream_id: u32 },
     PingRequest { timestamp: u32 },
     PingResponse { timestamp: u32 },
+    Unknown { id: u16, payload: BytesMut }
 }
 
 #[derive(Debug)]
@@ -82,4 +83,6 @@ pub enum Message {
     Video { cs_id: u32, payload: BytesMut },
 
     Aggregate(Vec<Message>),
+
+    Unknown { id: u8, payload: BytesMut }
 }
