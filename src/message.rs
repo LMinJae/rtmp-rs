@@ -21,27 +21,26 @@ pub const TIMESTAMP_MAX             : u32 = 0xFFFFFF;
 
 pub mod msg_type {
     #![allow(dead_code)]
-    pub const SET_CHUNK_SIZE        : u8 =  1;
-    pub const ABORT                 : u8 =  2;
-    pub const ACK                   : u8 =  3;
-    pub const WINDOW_ACK_SIZE       : u8 =  5;
-    pub const SET_PEER_BANDWIDTH    : u8 =  6;
+    pub const SET_CHUNK_SIZE        : u8 = 0x01;
+    pub const ABORT                 : u8 = 0x02;
+    pub const ACK                   : u8 = 0x03;
+    pub const USER_CONTROL          : u8 = 0x04;
+    pub const WINDOW_ACK_SIZE       : u8 = 0x05;
+    pub const SET_PEER_BANDWIDTH    : u8 = 0x06;
 
-    pub const USER_CONTROL          : u8 =  4;
+    pub const AUDIO                 : u8 = 0x08;
+    pub const VIDEO                 : u8 = 0x09;
 
-    pub const COMMAND_AMF0          : u8 = 20;
-    pub const COMMAND_AMF3          : u8 = 17;
+    pub const DATA_AMF3             : u8 = 0x0F;
+    pub const SHARED_OBJECT_AMF3    : u8 = 0x10;
+    pub const COMMAND_AMF3          : u8 = 0x11;
+    pub const DATA_AMF0             : u8 = 0x12;
+    pub const SHARED_OBJECT_AMF0    : u8 = 0x13;
+    pub const COMMAND_AMF0          : u8 = 0x14;
 
-    pub const DATA_AMF0             : u8 = 18;
-    pub const DATA_AMF3             : u8 = 15;
+    pub const AGGREGATE             : u8 = 0x16;
 
-    pub const SHARED_OBJECT_AMF0    : u8 = 19;
-    pub const SHARED_OBJECT_AMF3    : u8 = 16;
-
-    pub const AUDIO                 : u8 =  8;
-    pub const VIDEO                 : u8 =  9;
-
-    pub const AGGREGATE             : u8 = 22;
+    pub const SILENT_RECONNECT      : u8 = 0x20;
 }
 
 pub mod user_control_event {
