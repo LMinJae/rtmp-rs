@@ -29,23 +29,15 @@ And, Full version of `RTMP` specification is not exist...
 It means much things can be writing...(Practice writing article)
 
 # TODO
-[v] Handshake: Basic (5.2. Handshake)
-
-[ ] Handshake: Digest
-
-[ ] Define RTMP context
-
-[ ] Chunking (5.3. Chunking)
-
-[ ] Protocol Control Message (5.4. Protocol Control Messages)
-
-[ ] RTMP Message (6. RTMP Message Formats)
-
-[ ] AMF0/AMF3
-
-[ ] RTMP Command Messages (7. RTMP Command Messages)
-
-[ ] Undocumented specifications(ex. FCPublish, releaseStream, etc.)
+- [x] Accept incoming RTMP live stream
+  - [x] Handshake: Basic (5.2. Handshake)
+  - [x] Define RTMP context
+  - [x] Chunking (5.3. Chunking)
+  - [x] Protocol Control Message (5.4. Protocol Control Messages)
+  - [x] RTMP Message (6. RTMP Message Formats)
+  - [x] AMF0
+  - [x] RTMP Command Messages (7. RTMP Command Messages)
+  - [x] Undocumented specifications(ex. FCPublish, releaseStream, etc.)
 
 # References
 - [RTMP Specification 1.0](https://www.adobe.com/content/dam/acom/en/devnet/rtmp/pdf/rtmp_specification_1.0.pdf)
