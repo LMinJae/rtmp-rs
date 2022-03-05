@@ -20,6 +20,7 @@ pub struct Header {
 pub const TIMESTAMP_MAX             : u32 = 0xFFFFFF;
 
 pub mod msg_type {
+    #![allow(dead_code)]
     pub const SET_CHUNK_SIZE        : u8 =  1;
     pub const ABORT                 : u8 =  2;
     pub const ACK                   : u8 =  3;
@@ -44,6 +45,7 @@ pub mod msg_type {
 }
 
 pub mod user_control_event {
+    #![allow(dead_code)]
     pub const STREAM_BEGIN          : u16 = 0;
     pub const STREAM_EOF            : u16 = 1;
     pub const STREAM_DRY            : u16 = 2;
@@ -51,6 +53,10 @@ pub mod user_control_event {
     pub const STREAM_IS_RECORDED    : u16 = 4;
     pub const PING_REQUEST          : u16 = 6;
     pub const PING_RESPONSE         : u16 = 7;
+
+    // FMS 3.5
+    pub const STREAM_BUFFER_EMPTY   : u16 = 31;
+    pub const STREAM_BUFFER_READY   : u16 = 32;
 }
 
 #[derive(Debug)]
