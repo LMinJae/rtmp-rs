@@ -8,6 +8,15 @@ pub struct MessagePacket {
     pub payload: BytesMut,
 }
 
+impl MessagePacket {
+    pub fn new(header: Header) -> Self {
+        MessagePacket {
+            header,
+            payload: BytesMut::with_capacity(header.length as usize),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Header {
     pub timestamp: u32,

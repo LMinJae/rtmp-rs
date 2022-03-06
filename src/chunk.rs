@@ -147,10 +147,7 @@ impl Chunk {
                             timestamp_delta: None,
                         };
 
-                        self.cs_headers.insert(cs_id, message::MessagePacket {
-                            header,
-                            payload: BytesMut::with_capacity(header.length as usize),
-                        });
+                        self.cs_headers.insert(cs_id, message::MessagePacket::new(header));
                     } else {
                         return Err(ChunkError::UnknownChunkStream)
                     }
@@ -537,29 +534,25 @@ impl Chunk {
     fn handle_aggregate(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
         let mut rst = Vec::<message::Message>::new();
         while 0 < payload.len() {
-            let mut sub = message::MessagePacket {
-                header: message::Header {
-                    type_id: payload.get_u8(),
-                    length: {
-                        let mut v = 0_u32;
-                        for _ in 0..3 {
-                            v = v << 8 | (payload.get_u8() as u32)
-                        }
-                        v
-                    },
-                    timestamp: payload.get_u32(),
-                    stream_id: {
-                        let mut v = 0_u32;
-                        for _ in 0..3 {
-                            v = v << 8 | (payload.get_u8() as u32)
-                        }
-                        v
-                    },
-                    timestamp_delta: None,
+            let mut sub = message::MessagePacket::new(message::Header {
+                type_id: payload.get_u8(),
+                length: {
+                    let mut v = 0_u32;
+                    for _ in 0..3 {
+                        v = v << 8 | (payload.get_u8() as u32)
+                    }
+                    v
                 },
-                payload: BytesMut::new(),
-            };
-            sub.payload.reserve(sub.header.length as usize);
+                timestamp: payload.get_u32(),
+                stream_id: {
+                    let mut v = 0_u32;
+                    for _ in 0..3 {
+                        v = v << 8 | (payload.get_u8() as u32)
+                    }
+                    v
+                },
+                timestamp_delta: None,
+            });
 
             sub.payload.put(payload.split_to(sub.header.length as usize));
 
