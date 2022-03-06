@@ -1,5 +1,6 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::time::SystemTime;
 use bytes::Buf;
 
 use rtmp;
@@ -86,13 +87,21 @@ mod thread_pool {
 struct Connection {
     stream: TcpStream,
     ctx: rtmp::chunk::Chunk,
+
+    prev_timestamp: Option<SystemTime>,
+    prev_bytes_in: u32,
+    bytes_out: u32,
 }
 
 impl Connection {
     pub fn new(stream: TcpStream) -> Self {
         Connection {
             stream,
-            ctx: rtmp::chunk::Chunk::new()
+            ctx: rtmp::chunk::Chunk::new(),
+
+            prev_timestamp: None,
+            prev_bytes_in: 0,
+            bytes_out: 0,
         }
     }
 
@@ -132,12 +141,20 @@ impl Connection {
         println!("Handshake Done");
     }
 
+    fn flush(&mut self) {
+        if 0 < self.ctx.wr_buf.len() {
+            if None != self.prev_timestamp {
+                self.bytes_out += self.ctx.wr_buf.len() as u32;
+            }
+
+            self.stream.write_all(self.ctx.wr_buf.split().chunk()).unwrap();
+        }
+    }
+
     fn chunk_process(&mut self) {
         let mut buf = vec!(0_u8, 128);
         loop {
-            if 0 < self.ctx.wr_buf.len() {
-                self.stream.write_all(self.ctx.wr_buf.split().chunk()).unwrap();
-            }
+            self.flush();
             match self.stream.read(&mut buf) {
                 Ok(0) => {
                     return
@@ -175,6 +192,7 @@ impl Connection {
                                 let transaction_id = &payload[1];
                                 match cmd {
                                     "connect" =>  self.connect(payload),
+                                    "_checkbw" =>  self._checkbw(payload),
                                     "releaseStream" => self.releaseStream(payload),
                                     "FCPublish" => self.FCPublish(payload),
                                     "createStream" => self.createStream(payload),
@@ -286,11 +304,36 @@ impl Connection {
             ]) });
 
             // Determine RTT and bandwidth by reply _checkbw message
-            self.ctx.push(3, rtmp::message::Message::Command { payload: amf::Array::<amf::Value>::from([
-                amf::Value::Amf0Value(amf::amf0::Value::String("onBWDone".to_string())),
-                amf::Value::Amf0Value(amf::amf0::Value::Number(0.)),
-                amf::Value::Amf0Value(amf::amf0::Value::Null),
-            ]) });
+            if None == self.prev_timestamp {
+                self.flush();
+
+                self.prev_timestamp = Some(SystemTime::now());
+                self.prev_bytes_in = self.ctx.bytes_in;
+                self.bytes_out = 0;
+                self.ctx.push(3, rtmp::message::Message::Command {
+                    payload: amf::Array::<amf::Value>::from([
+                        amf::Value::Amf0Value(amf::amf0::Value::String("onBWDone".to_string())),
+                        amf::Value::Amf0Value(amf::amf0::Value::Number(0.)),
+                        amf::Value::Amf0Value(amf::amf0::Value::Null),
+                    ])
+                });
+
+                self.flush();
+            }
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn _checkbw(&mut self, packet: amf::Array<amf::Value>) {
+        if let Some(prev) = self.prev_timestamp {
+            match prev.elapsed() {
+                Ok(elapsed) => {
+                    let secs = elapsed.as_secs_f64();
+                    eprintln!("[Estimated BW] RTT: {:?}s In/Out: {:.4?}/{:.4?} KB/S", secs, (self.ctx.bytes_in - self.prev_bytes_in) as f64 / 1024. / secs, self.bytes_out as f64 / 1024. / secs);
+                }
+                _ => {}
+            }
+            self.prev_timestamp = None;
         }
     }
 

@@ -35,7 +35,7 @@ pub struct Chunk {
     rd_buf: BytesMut,
     pub wr_buf: BytesMut,
     cs_headers: HashMap<u32, message::MessagePacket>,
-    bytes_in: u32,
+    pub bytes_in: u32,
     bytes_in_sent: u32,
 }
 
