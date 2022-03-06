@@ -24,7 +24,7 @@ enum State {
     }
 }
 
-const DEFAULT_CHUNK_SIZE: i32 = 128;
+const DEFAULT_CHUNK_SIZE: i32 = 1 + 128;
 
 pub struct Chunk {
     state: State,
@@ -47,8 +47,8 @@ impl Chunk {
             out_chunk_size: DEFAULT_CHUNK_SIZE,
             window_size: 2500000,
             limit_type: LimitType::Dynamic,
-            rd_buf: BytesMut::with_capacity(128),
-            wr_buf: BytesMut::with_capacity(128),
+            rd_buf: BytesMut::with_capacity(DEFAULT_CHUNK_SIZE as usize),
+            wr_buf: BytesMut::with_capacity(DEFAULT_CHUNK_SIZE as usize),
             cs_headers: HashMap::with_capacity(4),
             bytes_in: 0,
             bytes_in_sent: 0,
@@ -341,8 +341,8 @@ impl Chunk {
                 }
 
                 self.in_chunk_size = chunk_size + 1;
-                if chunk_size as usize > self.rd_buf.capacity() {
-                    self.rd_buf.reserve((chunk_size as usize) - self.rd_buf.capacity())
+                if self.in_chunk_size as usize > self.rd_buf.capacity() {
+                    self.rd_buf.reserve((self.in_chunk_size as usize) - self.rd_buf.capacity())
                 }
 
                 Ok(Some(message::Message::SetChunkSize { chunk_size }))
@@ -394,6 +394,9 @@ impl Chunk {
                 }
 
                 self.out_chunk_size = chunk_size + 1;
+                if self.out_chunk_size as usize > self.wr_buf.capacity() {
+                    self.wr_buf.reserve((self.out_chunk_size as usize) - self.wr_buf.capacity())
+                }
 
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
 
