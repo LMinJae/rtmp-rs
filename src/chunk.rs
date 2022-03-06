@@ -190,20 +190,12 @@ impl Chunk {
             message::msg_type::SET_PEER_BANDWIDTH => self.handle_set_peer_bandwidth(payload),
             message::msg_type::USER_CONTROL => self.handle_user_control(payload),
             message::msg_type::COMMAND_AMF0 => {
-                let mut reader = payload.reader();
-                let mut rst = amf::Array::<amf::Value>::new();
-                while let Ok(v) = amf::amf0::decoder::from_bytes(&mut reader) {
-                    rst.append(&mut vec!(amf::Value::Amf0Value(v)));
-                }
+                let rst = Chunk::parse_amf0_packet(payload);
 
                 Ok(Some(message::Message::Command { payload: rst }))
             }
             message::msg_type::DATA_AMF0 => {
-                let mut reader = payload.reader();
-                let mut rst = amf::Array::<amf::Value>::new();
-                while let Ok(v) = amf::amf0::decoder::from_bytes(&mut reader) {
-                    rst.append(&mut vec!(amf::Value::Amf0Value(v)));
-                }
+                let rst = Chunk::parse_amf0_packet(payload);
 
                 Ok(Some(message::Message::Data { payload: rst }))
             }
@@ -374,6 +366,15 @@ impl Chunk {
                 w.put_u16(tmp as u16);
             }
         }
+    }
+
+    fn parse_amf0_packet<R: Buf>(payload: R) -> amf::Array::<amf::Value> {
+        let mut reader = payload.reader();
+        let mut rst = amf::Array::<amf::Value>::new();
+        while let Ok(v) = amf::amf0::decoder::from_bytes(&mut reader) {
+            rst.append(&mut vec!(amf::Value::Amf0Value(v)));
+        }
+        rst
     }
 
     fn handle_set_chunk_size(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
