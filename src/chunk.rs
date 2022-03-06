@@ -235,7 +235,47 @@ impl Chunk {
                 message::Message::SetPeerBandwidth { ack_window_size, limit_type }
             }
             message::msg_type::USER_CONTROL => {
-                return self.handle_user_control(payload)
+                let event_type = payload.get_u16();
+                match event_type {
+                    message::user_control_event::STREAM_BEGIN => {
+                        let stream_id = payload.get_u32();
+
+                        message::Message::UserControl(message::UserControlEvent::StreamBegin { stream_id })
+                    }
+                    message::user_control_event::STREAM_EOF => {
+                        let stream_id = payload.get_u32();
+
+                        message::Message::UserControl(message::UserControlEvent::StreamEoF { stream_id })
+                    }
+                    message::user_control_event::STREAM_DRY => {
+                        let stream_id = payload.get_u32();
+
+                        message::Message::UserControl(message::UserControlEvent::StreamDry { stream_id })
+                    }
+                    message::user_control_event::SET_BUFFER_LENGTH => {
+                        let stream_id = payload.get_u32();
+                        let length = payload.get_u32();
+
+                        message::Message::UserControl(message::UserControlEvent::SetBufferLength { stream_id, length })
+                    }
+                    message::user_control_event::STREAM_IS_RECORDED => {
+                        let stream_id = payload.get_u32();
+
+                        message::Message::UserControl(message::UserControlEvent::StreamIsRecorded { stream_id })
+                    }
+                    message::user_control_event::PING_REQUEST => {
+                        let timestamp = payload.get_u32();
+
+
+                        message::Message::UserControl(message::UserControlEvent::PingRequest { timestamp })
+                    }
+                    message::user_control_event::PING_RESPONSE => {
+                        let timestamp = payload.get_u32();
+
+                        message::Message::UserControl(message::UserControlEvent::PingResponse { timestamp })
+                    }
+                    id =>  message::Message::UserControl(message::UserControlEvent::Unknown {id, payload})
+                }
             }
             message::msg_type::COMMAND_AMF0 => {
                 let rst = Chunk::parse_amf0_packet(payload);
@@ -254,7 +294,42 @@ impl Chunk {
                 message::Message::Video { control: payload.get_u8(), payload }
             }
             message::msg_type::AGGREGATE => {
-                return self.handle_aggregate(payload)
+                let mut rst = Vec::<message::Message>::new();
+                while 0 < payload.len() {
+                    let mut sub = message::MessagePacket::new(message::Header {
+                        type_id: payload.get_u8(),
+                        length: {
+                            let mut v = 0_u32;
+                            for _ in 0..3 {
+                                v = v << 8 | (payload.get_u8() as u32)
+                            }
+                            v
+                        },
+                        timestamp: payload.get_u32(),
+                        stream_id: {
+                            let mut v = 0_u32;
+                            for _ in 0..3 {
+                                v = v << 8 | (payload.get_u8() as u32)
+                            }
+                            v
+                        },
+                        timestamp_delta: 0,
+                    });
+
+                    sub.payload.put(payload.split_to(sub.header.length as usize));
+
+                    let _back_pointer = payload.get_u32();
+
+                    match self.process_message(sub.header, sub.payload) {
+                        Ok(Some(m)) => {
+                            rst.append(&mut vec!(m));
+                        },
+                        Ok(None) => {}
+                        Err(e) => return Err(e)
+                    }
+                }
+
+                message::Message::Aggregate(rst)
             }
             id => message::Message::Unknown { id, payload}
         };
@@ -277,10 +352,10 @@ impl Chunk {
                     msg.payload.clear()
                 }
 
-                Ok(Some(message::Message::Abort { chunk_stream_id }))
+                Ok(None)
             }
-            message::Message::Ack { sequence_number: _sequence_number } => {
-                eprintln!("Receive: Ack");
+            message::Message::Ack { sequence_number } => {
+                eprintln!("Receive: Ack @ {:}", sequence_number);
                 Ok(None)
             }
             message::Message::WindowAckSize { ack_window_size } => {
@@ -299,6 +374,11 @@ impl Chunk {
                 self.limit_type = limit_type;
 
                 eprintln!("Receive: Client BW = {:}, {:?}", ack_window_size, limit_type);
+                Ok(None)
+            }
+            message::Message::UserControl(message::UserControlEvent::PingRequest { timestamp }) => {
+                self.push(2, message::Message::UserControl(message::UserControlEvent::PingResponse { timestamp }));
+
                 Ok(None)
             }
             _ => Ok(Some(msg))
@@ -470,95 +550,6 @@ impl Chunk {
             rst.append(&mut vec!(amf::Value::Amf0Value(v)));
         }
         rst
-    }
-
-    fn handle_user_control(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
-        let event_type = payload.get_u16();
-        match event_type {
-            message::user_control_event::STREAM_BEGIN => {
-                let stream_id = payload.get_u32();
-
-                eprintln!("Stream Begin {:}", stream_id);
-                Ok(Some(message::Message::UserControl(message::UserControlEvent::StreamBegin { stream_id })))
-            }
-            message::user_control_event::STREAM_EOF => {
-                let stream_id = payload.get_u32();
-
-                eprintln!("Stream EOF {:}", stream_id);
-                Ok(Some(message::Message::UserControl(message::UserControlEvent::StreamEoF { stream_id })))
-            }
-            message::user_control_event::STREAM_DRY => {
-                let stream_id = payload.get_u32();
-
-                eprintln!("Stream Dry {:}", stream_id);
-                Ok(Some(message::Message::UserControl(message::UserControlEvent::StreamDry { stream_id })))
-            }
-            message::user_control_event::SET_BUFFER_LENGTH => {
-                let stream_id = payload.get_u32();
-                let length = payload.get_u32();
-
-                Ok(Some(message::Message::UserControl(message::UserControlEvent::SetBufferLength { stream_id, length })))
-            }
-            message::user_control_event::STREAM_IS_RECORDED => {
-                let stream_id = payload.get_u32();
-
-                eprintln!("Stream isRecorded {:}", stream_id);
-                Ok(Some(message::Message::UserControl(message::UserControlEvent::StreamIsRecorded { stream_id })))
-            }
-            message::user_control_event::PING_REQUEST => {
-                let timestamp = payload.get_u32();
-
-                self.push(2, message::Message::UserControl(message::UserControlEvent::PingResponse { timestamp }));
-
-                eprintln!("Ping {:}", timestamp);
-                Ok(Some(message::Message::UserControl(message::UserControlEvent::PingRequest { timestamp })))
-            }
-            message::user_control_event::PING_RESPONSE => {
-                let timestamp = payload.get_u32();
-
-                Ok(Some(message::Message::UserControl(message::UserControlEvent::PingResponse { timestamp })))
-            }
-            id =>  Err(ChunkError::UnknownEvent(message::UserControlEvent::Unknown {id, payload}))
-        }
-    }
-
-    fn handle_aggregate(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
-        let mut rst = Vec::<message::Message>::new();
-        while 0 < payload.len() {
-            let mut sub = message::MessagePacket::new(message::Header {
-                type_id: payload.get_u8(),
-                length: {
-                    let mut v = 0_u32;
-                    for _ in 0..3 {
-                        v = v << 8 | (payload.get_u8() as u32)
-                    }
-                    v
-                },
-                timestamp: payload.get_u32(),
-                stream_id: {
-                    let mut v = 0_u32;
-                    for _ in 0..3 {
-                        v = v << 8 | (payload.get_u8() as u32)
-                    }
-                    v
-                },
-                timestamp_delta: 0,
-            });
-
-            sub.payload.put(payload.split_to(sub.header.length as usize));
-
-            let _back_pointer = payload.get_u32();
-
-            match self.process_message(sub.header, sub.payload) {
-                Ok(Some(m)) => {
-                    rst.append(&mut vec!(m));
-                },
-                Ok(None) => {}
-                Err(e) => return Err(e)
-            }
-        }
-
-        Ok(Some(message::Message::Aggregate(rst)))
     }
 }
 
