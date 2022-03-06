@@ -23,7 +23,7 @@ pub struct Header {
     pub length: u32,
     pub type_id: u8,
     pub stream_id: u32,
-    pub timestamp_delta: Option<u32>,
+    pub timestamp_delta: u32,
 }
 
 pub const TIMESTAMP_MAX             : u32 = 0xFFFFFF;

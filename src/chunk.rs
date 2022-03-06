@@ -102,7 +102,7 @@ impl Chunk {
                             if 0b00 == fmt {
                                 msg.header.timestamp = timestamp;
                             } else {
-                                msg.header.timestamp_delta = Some(timestamp);
+                                msg.header.timestamp_delta = timestamp;
                             }
                         }
 
@@ -131,12 +131,8 @@ impl Chunk {
                             if 0b00 == fmt {
                                 msg.header.timestamp = self.rd_buf.get_u32()
                             } else {
-                                msg.header.timestamp_delta = Some(self.rd_buf.get_u32())
+                                msg.header.timestamp_delta = self.rd_buf.get_u32()
                             }
-                        }
-
-                        if let Some(d) = msg.header.timestamp_delta {
-                            msg.header.timestamp += d;
                         }
                     } else if 0x00 == fmt {
                         let header = message::Header {
@@ -144,7 +140,7 @@ impl Chunk {
                             length: read_u24!(),
                             type_id: self.rd_buf.get_u8(),
                             stream_id: self.rd_buf.get_u32(),
-                            timestamp_delta: None,
+                            timestamp_delta: 0,
                         };
 
                         self.cs_headers.insert(cs_id, message::MessagePacket::new(header));
@@ -156,6 +152,8 @@ impl Chunk {
             }
             if let State::ChunkMessageHeader { cs_id } = self.state {
                 if let Some(msg) = self.cs_headers.get_mut(&cs_id) {
+                    msg.header.timestamp += msg.header.timestamp_delta;
+
                     let length = msg.header.length as usize;
 
                     let left = min(self.in_chunk_size as usize - 1, length - msg.payload.len());
@@ -551,7 +549,7 @@ impl Chunk {
                     }
                     v
                 },
-                timestamp_delta: None,
+                timestamp_delta: 0,
             });
 
             sub.payload.put(payload.split_to(sub.header.length as usize));
