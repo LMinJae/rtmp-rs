@@ -142,12 +142,13 @@ impl Connection {
     }
 
     fn flush(&mut self) {
-        if 0 < self.ctx.wr_buf.len() {
+        let len = self.ctx.get_write_buffer_length();
+        if 0 < len {
             if None != self.prev_timestamp {
-                self.bytes_out += self.ctx.wr_buf.len() as u32;
+                self.bytes_out += len as u32;
             }
 
-            self.stream.write_all(self.ctx.wr_buf.split().chunk()).unwrap();
+            self.stream.write_all(self.ctx.flush_write_buffer().chunk()).unwrap();
         }
     }
 
@@ -308,7 +309,7 @@ impl Connection {
                 self.flush();
 
                 self.prev_timestamp = Some(SystemTime::now());
-                self.prev_bytes_in = self.ctx.bytes_in;
+                self.prev_bytes_in = self.ctx.get_bytes_in();
                 self.bytes_out = 0;
                 self.ctx.push(3, rtmp::message::Message::Command {
                     payload: amf::Array::<amf::Value>::from([
@@ -324,12 +325,12 @@ impl Connection {
     }
 
     #[allow(non_snake_case)]
-    fn _checkbw(&mut self, packet: amf::Array<amf::Value>) {
+    fn _checkbw(&mut self, _packet: amf::Array<amf::Value>) {
         if let Some(prev) = self.prev_timestamp {
             match prev.elapsed() {
                 Ok(elapsed) => {
                     let secs = elapsed.as_secs_f64();
-                    eprintln!("[Estimated BW] RTT: {:?}s In/Out: {:.4?}/{:.4?} KB/S", secs, (self.ctx.bytes_in - self.prev_bytes_in) as f64 / 1024. / secs, self.bytes_out as f64 / 1024. / secs);
+                    eprintln!("[Estimated BW] RTT: {:?}s In/Out: {:.4?}/{:.4?} KB/S", secs, (self.ctx.get_bytes_in() - self.prev_bytes_in) as f64 / 1024. / secs, self.bytes_out as f64 / 1024. / secs);
                 }
                 _ => {}
             }

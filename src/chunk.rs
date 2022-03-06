@@ -33,9 +33,9 @@ pub struct Chunk {
     window_size: u32,
     limit_type: LimitType,
     rd_buf: BytesMut,
-    pub wr_buf: BytesMut,
+    wr_buf: BytesMut,
     cs_headers: HashMap<u32, message::MessagePacket>,
-    pub bytes_in: u32,
+    bytes_in: u32,
     bytes_in_sent: u32,
 }
 
@@ -53,6 +53,18 @@ impl Chunk {
             bytes_in: 0,
             bytes_in_sent: 0,
         }
+    }
+
+    pub fn get_write_buffer_length(&self) -> usize {
+        self.wr_buf.len()
+    }
+
+    pub fn flush_write_buffer(&mut self) -> BytesMut {
+        self.wr_buf.split()
+    }
+
+    pub fn get_bytes_in(&self) -> u32 {
+        self.bytes_in
     }
 
     pub fn buffering(&mut self, buf: &[u8]) {
