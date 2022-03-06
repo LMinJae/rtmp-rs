@@ -174,7 +174,7 @@ impl Chunk {
                 }
                 let msg =  self.cs_headers.get(&cs_id).unwrap().clone();
 
-                let rst = self.process_message(cs_id, msg.header.clone(), msg.payload.clone());
+                let rst = self.process_message(msg.header.clone(), msg.payload.clone());
 
                 if let Some(msg) = self.cs_headers.get_mut(&cs_id) {
                     msg.payload.clear()
@@ -186,7 +186,7 @@ impl Chunk {
         }
     }
 
-    fn process_message(&mut self, cs_id: u32, header: message::Header, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
+    fn process_message(&mut self, header: message::Header, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
         match header.type_id {
             message::msg_type::SET_CHUNK_SIZE => self.handle_set_chunk_size(payload),
             message::msg_type::ABORT => self.handle_abort(payload),
@@ -218,7 +218,7 @@ impl Chunk {
             message::msg_type::VIDEO => {
                 Ok(Some(message::Message::Video { control: payload.get_u8(), payload }))
             }
-            message::msg_type::AGGREGATE => self.handle_aggregate(cs_id, payload),
+            message::msg_type::AGGREGATE => self.handle_aggregate(payload),
             id => Ok(Some(message::Message::Unknown { id, payload}))
         }
     }
@@ -534,7 +534,7 @@ impl Chunk {
         }
     }
 
-    fn handle_aggregate(&mut self, cs_id: u32, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
+    fn handle_aggregate(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
         let mut rst = Vec::<message::Message>::new();
         while 0 < payload.len() {
             let sub_h = message::Header {
@@ -562,7 +562,7 @@ impl Chunk {
 
             let _back_pointer = payload.get_u32();
 
-            match self.process_message(cs_id, sub_h, data) {
+            match self.process_message(sub_h, data) {
                 Ok(Some(m)) => {
                     rst.append(&mut vec!(m));
                 },
