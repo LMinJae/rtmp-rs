@@ -537,32 +537,35 @@ impl Chunk {
     fn handle_aggregate(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
         let mut rst = Vec::<message::Message>::new();
         while 0 < payload.len() {
-            let sub_h = message::Header {
-                type_id: payload.get_u8(),
-                length: {
-                    let mut v = 0_u32;
-                    for _ in 0..3 {
-                        v = v << 8 | (payload.get_u8() as u32)
-                    }
-                    v
+            let mut sub = message::MessagePacket {
+                header: message::Header {
+                    type_id: payload.get_u8(),
+                    length: {
+                        let mut v = 0_u32;
+                        for _ in 0..3 {
+                            v = v << 8 | (payload.get_u8() as u32)
+                        }
+                        v
+                    },
+                    timestamp: payload.get_u32(),
+                    stream_id: {
+                        let mut v = 0_u32;
+                        for _ in 0..3 {
+                            v = v << 8 | (payload.get_u8() as u32)
+                        }
+                        v
+                    },
+                    timestamp_delta: None,
                 },
-                timestamp: payload.get_u32(),
-                stream_id: {
-                    let mut v = 0_u32;
-                    for _ in 0..3 {
-                        v = v << 8 | (payload.get_u8() as u32)
-                    }
-                    v
-                },
-                timestamp_delta: None,
+                payload: BytesMut::new(),
             };
+            sub.payload.reserve(sub.header.length as usize);
 
-            let mut data = BytesMut::with_capacity(sub_h.length as usize);
-            data.put(payload.split_to(sub_h.length as usize));
+            sub.payload.put(payload.split_to(sub.header.length as usize));
 
             let _back_pointer = payload.get_u32();
 
-            match self.process_message(sub_h, data) {
+            match self.process_message(sub.header, sub.payload) {
                 Ok(Some(m)) => {
                     rst.append(&mut vec!(m));
                 },
