@@ -386,7 +386,7 @@ impl Chunk {
     }
 
     pub fn push(&mut self, cs_id: u32, msg: message::Message) {
-        match msg {
+        let (head, mut body) = match msg {
             message::Message::SetChunkSize { chunk_size } => {
                 self.out_chunk_size = chunk_size + 1;
 
@@ -405,10 +405,12 @@ impl Chunk {
                 // message stream id
                 buf.put_u32(0);
 
+                let head = buf.split();
+
                 // Body
                 buf.put_i32(chunk_size);
 
-                self.wr_buf.put(buf);
+                (head, buf)
             }
             message::Message::Ack { sequence_number } => {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
@@ -424,10 +426,12 @@ impl Chunk {
                 // message type_id
                 buf.put_u8(message::msg_type::ACK);
 
+                let head = buf.split();
+
                 // Body
                 buf.put_u32(sequence_number);
 
-                self.wr_buf.put(buf);
+                (head, buf)
             }
             message::Message::WindowAckSize { ack_window_size } => {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
@@ -445,10 +449,12 @@ impl Chunk {
                 // message stream id
                 buf.put_u32(0);
 
+                let head = buf.split();
+
                 // Body
                 buf.put_u32(ack_window_size);
 
-                self.wr_buf.put(buf);
+                (head, buf)
             }
             message::Message::SetPeerBandwidth { ack_window_size, limit_type } => {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
@@ -466,6 +472,8 @@ impl Chunk {
                 // message stream id
                 buf.put_u32(0);
 
+                let head = buf.split();
+
                 // Body
                 buf.put_u32(ack_window_size);
                 buf.put_u8(match limit_type {
@@ -474,7 +482,7 @@ impl Chunk {
                     _ => 2
                 });
 
-                self.wr_buf.put(buf);
+                (head, buf)
             }
             message::Message::Command { payload } => {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
@@ -500,13 +508,26 @@ impl Chunk {
                 // message stream id
                 buf.put_u32(0);
 
+                let head = buf.split();
+
                 // Body
                 buf.put(cmd.as_slice());
 
-                self.wr_buf.put(buf);
+                (head, buf)
             }
             _ => {
                 unimplemented!()
+            }
+        };
+
+        self.wr_buf.put(head);
+        if 4 <= self.out_chunk_size {
+            self.wr_buf.put(body);
+        } else {
+            self.wr_buf.put(body.split_to(self.out_chunk_size as usize));
+            while 0 < body.len() {
+                Chunk::write_basic_header(&mut self.wr_buf, 3, cs_id);
+                self.wr_buf.put(body.split_to(min(body.len(), self.out_chunk_size as usize)))
             }
         }
     }
