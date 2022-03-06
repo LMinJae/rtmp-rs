@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+use bytes::{BufMut, BytesMut};
 
 // 5.3.1.2. Chunk Message Header
 #[derive(Debug)]
@@ -23,6 +23,50 @@ pub struct Header {
     pub type_id: u8,
     pub stream_id: u32,
     pub timestamp_delta: u32,
+}
+
+impl Header {
+    pub fn write_chunk_message_header<W: BufMut>(&self, mut w: W, fmt: u8) {
+        if 3 == fmt { return }
+
+        // timestamp
+        if TIMESTAMP_MAX < self.timestamp {
+            w.put_u16(0xFFFF);
+            w.put_u8(0xFF);
+        } else if 0 == fmt{
+            w.put_u8(0xFF & (self.timestamp >> 16) as u8);
+            w.put_u8(0xFF & (self.timestamp >> 8) as u8);
+            w.put_u8(0xFF & (self.timestamp) as u8);
+        } else {
+            w.put_u8(0xFF & (self.timestamp_delta >> 16) as u8);
+            w.put_u8(0xFF & (self.timestamp_delta >> 8) as u8);
+            w.put_u8(0xFF & (self.timestamp_delta) as u8);
+        }
+
+        if 2 > fmt {
+            // message length
+            w.put_u8(0xFF & (self.length >> 16) as u8);
+            w.put_u8(0xFF & (self.length >> 8) as u8);
+            w.put_u8(0xFF & (self.length) as u8);
+
+            // message type_id
+            w.put_u8(self.type_id);
+
+            if 1 > fmt {
+                // message stream id
+                w.put_u32(self.stream_id);
+            }
+        }
+
+        // extended timestamp
+        if TIMESTAMP_MAX < self.timestamp {
+            if 0 == fmt {
+                w.put_u32(self.timestamp);
+            } else {
+                w.put_u32(self.timestamp_delta);
+            }
+        }
+    }
 }
 
 pub const TIMESTAMP_MAX             : u32 = 0xFFFFFF;

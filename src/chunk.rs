@@ -401,14 +401,13 @@ impl Chunk {
                 Chunk::write_basic_header(&mut buf, 0, cs_id);
 
                 // Chunk Message Header - Type 0
-                // timestamp + message length(0)
-                buf.put_u32(0);
-                // message length(1..2)
-                buf.put_u16(4);
-                // message type_id
-                buf.put_u8(message::msg_type::SET_CHUNK_SIZE);
-                // message stream id
-                buf.put_u32(0);
+                message::Header {
+                    timestamp: 0,
+                    length: 4,
+                    type_id: message::msg_type::SET_CHUNK_SIZE,
+                    stream_id: 0,
+                    timestamp_delta: 0
+                }.write_chunk_message_header(&mut buf, 0);
 
                 let head = buf.split();
 
@@ -424,12 +423,13 @@ impl Chunk {
                 Chunk::write_basic_header(&mut buf, 1, cs_id);
 
                 // Chunk Message Header - Type 1
-                // timestamp + message length(0)
-                buf.put_u32(0);
-                // message length(1..2)
-                buf.put_u16(4);
-                // message type_id
-                buf.put_u8(message::msg_type::ACK);
+                message::Header {
+                    timestamp: 0,
+                    length: 4,
+                    type_id: message::msg_type::ACK,
+                    stream_id: 0,
+                    timestamp_delta: 0
+                }.write_chunk_message_header(&mut buf, 1);
 
                 let head = buf.split();
 
@@ -445,14 +445,13 @@ impl Chunk {
                 Chunk::write_basic_header(&mut buf, 0, cs_id);
 
                 // Chunk Message Header - Type 0
-                // timestamp + message length(0)
-                buf.put_u32(0);
-                // message length(1..2)
-                buf.put_u16(4);
-                // message type_id
-                buf.put_u8(message::msg_type::WINDOW_ACK_SIZE);
-                // message stream id
-                buf.put_u32(0);
+                message::Header {
+                    timestamp: 0,
+                    length: 4,
+                    type_id: message::msg_type::WINDOW_ACK_SIZE,
+                    stream_id: 0,
+                    timestamp_delta: 0
+                }.write_chunk_message_header(&mut buf, 0);
 
                 let head = buf.split();
 
@@ -468,14 +467,13 @@ impl Chunk {
                 Chunk::write_basic_header(&mut buf, 0, cs_id);
 
                 // Chunk Message Header - Type 0
-                // timestamp + message length(0)
-                buf.put_u32(0);
-                // message length(1..2)
-                buf.put_u16(5);
-                // message type_id
-                buf.put_u8(message::msg_type::SET_PEER_BANDWIDTH);
-                // message stream id
-                buf.put_u32(0);
+                message::Header {
+                    timestamp: 0,
+                    length: 5,
+                    type_id: message::msg_type::SET_PEER_BANDWIDTH,
+                    stream_id: 0,
+                    timestamp_delta: 0
+                }.write_chunk_message_header(&mut buf, 0);
 
                 let head = buf.split();
 
@@ -496,22 +494,19 @@ impl Chunk {
                 Chunk::write_basic_header(&mut buf, 0, cs_id);
 
                 // Chunk Message Header - Type 0
-                // timestamp
-                buf.put_u16(0);
-                buf.put_u8(0);
                 // message length
                 let mut cmd = Vec::<u8>::new();
                 for i in payload {
                     let amf::Value::Amf0Value(v) = i;
                     amf::amf0::encoder::to_bytes(&mut cmd, &v).unwrap();
                 }
-                let len = cmd.len();
-                buf.put_u16((len >> 8) as u16);
-                buf.put_u8((len & 0xff) as u8);
-                // message type_id
-                buf.put_u8(message::msg_type::COMMAND_AMF0);
-                // message stream id
-                buf.put_u32(0);
+                message::Header {
+                    timestamp: 0,
+                    length: cmd.len() as u32,
+                    type_id: message::msg_type::COMMAND_AMF0,
+                    stream_id: 0,
+                    timestamp_delta: 0
+                }.write_chunk_message_header(&mut buf, 0);
 
                 let head = buf.split();
 
