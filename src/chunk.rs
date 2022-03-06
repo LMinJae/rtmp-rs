@@ -226,18 +226,7 @@ impl Chunk {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
 
                 // Basic header
-                if 64 > cs_id {
-                    buf.put_u8(0b00000000 | (cs_id) as u8)
-                } else {
-                    let tmp = cs_id - 64;
-                    /*  */ if 319 > cs_id {
-                        buf.put_u8(0b00000000);
-                        buf.put_u8(tmp as u8);
-                    } else {
-                        buf.put_u8(0b00111111);
-                        buf.put_u16(tmp as u16);
-                    }
-                }
+                Chunk::write_basic_header(&mut buf, 0, cs_id);
 
                 // Chunk Message Header - Type 0
                 // timestamp + message length(0)
@@ -258,18 +247,7 @@ impl Chunk {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
 
                 // Basic header
-                if 64 > cs_id {
-                    buf.put_u8(0b01000000 | (cs_id) as u8)
-                } else {
-                    let tmp = cs_id - 64;
-                    /*  */ if 319 > cs_id {
-                        buf.put_u8(0b01000000);
-                        buf.put_u8(tmp as u8);
-                    } else {
-                        buf.put_u8(0b01111111);
-                        buf.put_u16(tmp as u16);
-                    }
-                }
+                Chunk::write_basic_header(&mut buf, 1, cs_id);
 
                 // Chunk Message Header - Type 1
                 // timestamp + message length(0)
@@ -288,18 +266,7 @@ impl Chunk {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
 
                 // Basic header
-                if 64 > cs_id {
-                    buf.put_u8(0b00000000 | (cs_id) as u8)
-                } else {
-                    let tmp = cs_id - 64;
-                    /*  */ if 319 > cs_id {
-                        buf.put_u8(0b00000000);
-                        buf.put_u8(tmp as u8);
-                    } else {
-                        buf.put_u8(0b00111111);
-                        buf.put_u16(tmp as u16);
-                    }
-                }
+                Chunk::write_basic_header(&mut buf, 0, cs_id);
 
                 // Chunk Message Header - Type 0
                 // timestamp + message length(0)
@@ -320,18 +287,7 @@ impl Chunk {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
 
                 // Basic header
-                if 64 > cs_id {
-                    buf.put_u8(0b00000000 | (cs_id) as u8)
-                } else {
-                    let tmp = cs_id - 64;
-                    /*  */ if 319 > cs_id {
-                        buf.put_u8(0b00000000);
-                        buf.put_u8(tmp as u8);
-                    } else {
-                        buf.put_u8(0b00111111);
-                        buf.put_u16(tmp as u16);
-                    }
-                }
+                Chunk::write_basic_header(&mut buf, 0, cs_id);
 
                 // Chunk Message Header - Type 0
                 // timestamp + message length(0)
@@ -357,18 +313,7 @@ impl Chunk {
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
 
                 // Basic header
-                if 64 > cs_id {
-                    buf.put_u8(0b00000000 | (cs_id) as u8)
-                } else {
-                    let tmp = cs_id - 64;
-                    /*  */ if 319 > cs_id {
-                        buf.put_u8(0b00000000);
-                        buf.put_u8(tmp as u8);
-                    } else {
-                        buf.put_u8(0b00111111);
-                        buf.put_u16(tmp as u16);
-                    }
-                }
+                Chunk::write_basic_header(&mut buf, 0, cs_id);
 
                 // Chunk Message Header - Type 0
                 // timestamp
@@ -414,6 +359,21 @@ impl Chunk {
                 i
             },
         };
+    }
+
+    fn write_basic_header<R: BufMut>(mut w: R, fmt: u8, cs_id: u32) {
+        if 64 > cs_id {
+            w.put_u8((fmt << 6) | (cs_id) as u8)
+        } else {
+            let tmp = cs_id - 64;
+            /*  */ if 319 > cs_id {
+                w.put_u8(fmt << 6);
+                w.put_u8(tmp as u8);
+            } else {
+                w.put_u8((fmt << 6) | 0b00111111);
+                w.put_u16(tmp as u16);
+            }
+        }
     }
 
     fn handle_set_chunk_size(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
