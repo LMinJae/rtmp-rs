@@ -1,5 +1,7 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::thread;
+use std::sync::mpsc;
 use bytes::Buf;
 
 use rtmp;
@@ -294,10 +296,19 @@ impl Connection {
 fn main() -> std::io::Result<()> {
     let listener = TcpListener::bind("127.1.2.7:1935")?;
 
+    let (tx, rx) = mpsc::channel();
     for stream in listener.incoming() {
         if let Ok(s) = stream {
-            Connection::new(s).start();
+            let tx_ = mpsc::Sender::clone(&tx);
+            thread::spawn(move || {
+                Connection::new(s).start();
+
+                tx_.send(0).unwrap();
+            });
         }
     }
+
+    for _ in rx {}
+
     Ok(())
 }
