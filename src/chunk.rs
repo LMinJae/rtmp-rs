@@ -388,6 +388,11 @@ impl Chunk {
     pub fn push(&mut self, cs_id: u32, msg: message::Message) {
         let (head, mut body) = match msg {
             message::Message::SetChunkSize { chunk_size } => {
+                if 128 > chunk_size {
+                    // Fail occur when short command message processing
+                    return
+                }
+
                 self.out_chunk_size = chunk_size + 1;
 
                 let mut buf = BytesMut::with_capacity(self.out_chunk_size as usize);
