@@ -56,10 +56,6 @@ impl Connection {
     }
 
     fn chunk_process(&mut self) {
-        self.ctx.push(2, rtmp::message::Message::WindowAckSize { ack_window_size: 2_500_000 });
-        self.ctx.push(2, rtmp::message::Message::SetPeerBandwidth { ack_window_size: 10_000_000, limit_type: rtmp::chunk::LimitType::Dynamic });
-        self.ctx.push(2, rtmp::message::Message::SetChunkSize { chunk_size: 256 });
-
         let mut buf = vec!(0_u8, 128);
         loop {
             if 0 < self.ctx.wr_buf.len() {
@@ -179,6 +175,10 @@ impl Connection {
     // RPC methods
     #[allow(non_snake_case)]
     fn connect(&mut self, packet: amf::Array<amf::Value>) {
+        self.ctx.push(2, rtmp::message::Message::WindowAckSize { ack_window_size: 2_500_000 });
+        self.ctx.push(2, rtmp::message::Message::SetPeerBandwidth { ack_window_size: 10_000_000, limit_type: rtmp::chunk::LimitType::Dynamic });
+        self.ctx.push(2, rtmp::message::Message::SetChunkSize { chunk_size: 256 });
+
         let transaction_id = &packet[1];
         if let amf::Value::Amf0Value(amf::amf0::Value::Object(obj)) = &packet[2] {
             eprintln!("{:?}({:?})", "connect", obj["app"]);
@@ -208,6 +208,7 @@ impl Connection {
                 })),
             ]) });
 
+            // Determine RTT and bandwidth by reply _checkbw message
             self.ctx.push(3, rtmp::message::Message::Command { payload: amf::Array::<amf::Value>::from([
                 amf::Value::Amf0Value(amf::amf0::Value::String("onBWDone".to_string())),
                 amf::Value::Amf0Value(amf::amf0::Value::Number(0.)),
