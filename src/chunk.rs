@@ -199,31 +199,109 @@ impl Chunk {
     }
 
     fn process_message(&mut self, header: message::Header, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
-        match header.type_id {
-            message::msg_type::SET_CHUNK_SIZE => self.handle_set_chunk_size(payload),
-            message::msg_type::ABORT => self.handle_abort(payload),
-            message::msg_type::ACK => self.handle_ack(payload),
-            message::msg_type::WINDOW_ACK_SIZE => self.handle_window_ack_size(payload),
-            message::msg_type::SET_PEER_BANDWIDTH => self.handle_set_peer_bandwidth(payload),
-            message::msg_type::USER_CONTROL => self.handle_user_control(payload),
+        let msg = match header.type_id {
+            message::msg_type::SET_CHUNK_SIZE => {
+                let chunk_size = payload.get_i32();
+
+                message::Message::SetChunkSize { chunk_size }
+            }
+            message::msg_type::ABORT => {
+                let chunk_stream_id = payload.get_u32();
+
+                message::Message::Abort { chunk_stream_id }
+            }
+
+            message::msg_type::ACK => {
+                let sequence_number = payload.get_u32();
+
+                message::Message::Ack { sequence_number }
+            }
+            message::msg_type::WINDOW_ACK_SIZE => {
+                let ack_window_size = payload.get_u32();
+
+                message::Message::WindowAckSize { ack_window_size }
+            }
+            message::msg_type::SET_PEER_BANDWIDTH => {
+                let ack_window_size = payload.get_u32();
+                let limit_type = {
+                    match payload.get_u8() {
+                        0 => LimitType::Hard,
+                        1 => LimitType::Soft,
+                        2 => LimitType::Dynamic,
+                        n => LimitType::Unknown(n)
+                    }
+                };
+
+                message::Message::SetPeerBandwidth { ack_window_size, limit_type }
+            }
+            message::msg_type::USER_CONTROL => {
+                return self.handle_user_control(payload)
+            }
             message::msg_type::COMMAND_AMF0 => {
                 let rst = Chunk::parse_amf0_packet(payload);
 
-                Ok(Some(message::Message::Command { payload: rst }))
+                message::Message::Command { payload: rst }
             }
             message::msg_type::DATA_AMF0 => {
                 let rst = Chunk::parse_amf0_packet(payload);
 
-                Ok(Some(message::Message::Data { payload: rst }))
+                message::Message::Data { payload: rst }
             }
             message::msg_type::AUDIO => {
-                Ok(Some(message::Message::Audio { control: payload.get_u8(), payload }))
+                message::Message::Audio { control: payload.get_u8(), payload }
             }
             message::msg_type::VIDEO => {
-                Ok(Some(message::Message::Video { control: payload.get_u8(), payload }))
+                message::Message::Video { control: payload.get_u8(), payload }
             }
-            message::msg_type::AGGREGATE => self.handle_aggregate(payload),
-            id => Ok(Some(message::Message::Unknown { id, payload}))
+            message::msg_type::AGGREGATE => {
+                return self.handle_aggregate(payload)
+            }
+            id => message::Message::Unknown { id, payload}
+        };
+
+        match msg {
+            message::Message::SetChunkSize { chunk_size } => {
+                if 1 > chunk_size {
+                    return Err(ChunkError::WrongInput)
+                }
+
+                self.in_chunk_size = chunk_size + 1;
+                if chunk_size as usize > self.rd_buf.capacity() {
+                    self.rd_buf.reserve((chunk_size as usize) - self.rd_buf.capacity())
+                }
+
+                Ok(Some(message::Message::SetChunkSize { chunk_size }))
+            }
+            message::Message::Abort { chunk_stream_id } => {
+                if let Some(msg) = self.cs_headers.get_mut(&chunk_stream_id) {
+                    msg.payload.clear()
+                }
+
+                Ok(Some(message::Message::Abort { chunk_stream_id }))
+            }
+            message::Message::Ack { sequence_number: _sequence_number } => {
+                eprintln!("Receive: Ack");
+                Ok(None)
+            }
+            message::Message::WindowAckSize { ack_window_size } => {
+                self.window_size = ack_window_size;
+
+                eprintln!("Receive: Server BW = {:}", ack_window_size);
+                Ok(None)
+            }
+            message::Message::SetPeerBandwidth { ack_window_size, limit_type } => {
+                if self.window_size != ack_window_size {
+                    self.push(2, message::Message::WindowAckSize {
+                        ack_window_size
+                    });
+                }
+                self.window_size = ack_window_size;
+                self.limit_type = limit_type;
+
+                eprintln!("Receive: Client BW = {:}, {:?}", ack_window_size, limit_type);
+                Ok(None)
+            }
+            _ => Ok(Some(msg))
         }
     }
 
@@ -392,69 +470,6 @@ impl Chunk {
             rst.append(&mut vec!(amf::Value::Amf0Value(v)));
         }
         rst
-    }
-
-    fn handle_set_chunk_size(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
-        let chunk_size = payload.get_i32();
-        if 1 > chunk_size {
-            return Err(ChunkError::WrongInput)
-        }
-
-        self.in_chunk_size = chunk_size + 1;
-        if chunk_size as usize > self.rd_buf.capacity() {
-            self.rd_buf.reserve((chunk_size as usize) - self.rd_buf.capacity())
-        }
-
-        Ok(Some(message::Message::SetChunkSize { chunk_size }))
-    }
-
-    fn handle_abort(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
-        let chunk_stream_id = payload.get_u32();
-
-        if let Some(msg) = self.cs_headers.get_mut(&chunk_stream_id) {
-            msg.payload.clear()
-        }
-
-        Ok(Some(message::Message::Abort { chunk_stream_id }))
-    }
-
-    fn handle_ack(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
-        let _sequence_number = payload.get_u32();
-
-        eprintln!("Receive: Ack");
-        Ok(None)
-    }
-
-    fn handle_window_ack_size(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
-        let ack_window_size = payload.get_u32();
-
-        self.window_size = ack_window_size;
-
-        eprintln!("Receive: Server BW = {:}", ack_window_size);
-        Ok(None)
-    }
-
-    fn handle_set_peer_bandwidth(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
-        let ack_window_size = payload.get_u32();
-        let limit_type = {
-            match payload.get_u8() {
-                0 => LimitType::Hard,
-                1 => LimitType::Soft,
-                2 => LimitType::Dynamic,
-                n => LimitType::Unknown(n)
-            }
-        };
-
-        if self.window_size != ack_window_size {
-            self.push(2, message::Message::WindowAckSize {
-                ack_window_size
-            });
-        }
-        self.window_size = ack_window_size;
-        self.limit_type = limit_type;
-
-        eprintln!("Receive: Client BW = {:}, {:?}", ack_window_size, limit_type);
-        Ok(None)
     }
 
     fn handle_user_control(&mut self, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
