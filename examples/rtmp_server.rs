@@ -1,10 +1,87 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::thread;
-use std::sync::mpsc;
 use bytes::Buf;
 
 use rtmp;
+
+// https://doc.rust-lang.org/book/ch20-03-graceful-shutdown-and-cleanup.html
+mod thread_pool {
+    use std::thread;
+    use std::sync::mpsc;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+
+    enum Message {
+        New(Box<dyn FnOnce() + Send + 'static>),
+        Terminate,
+    }
+
+    struct Worker {
+        thread: Option<thread::JoinHandle<()>>,
+    }
+
+    impl Worker {
+        pub fn new(rx: Arc<Mutex<mpsc::Receiver<Message>>>) -> Self {
+            let thread = thread::spawn(move || loop {
+                match rx.lock().unwrap().recv().unwrap() {
+                    Message::New(job) => {
+                        job();
+                    }
+                    Message::Terminate => {
+                        break;
+                    }
+                }
+            });
+
+            Worker {
+                thread: Some(thread),
+            }
+        }
+    }
+
+    pub(crate) struct ThreadPool {
+        workers: Vec<Worker>,
+        tx: mpsc::Sender<Message>,
+    }
+    
+    impl ThreadPool {
+        pub fn new(size: usize) -> Self {
+            let (tx, rx) = mpsc::channel();
+            let rx = Arc::new(Mutex::new(rx));
+
+            let mut workers = Vec::with_capacity(size);
+            for _ in 0..size {
+                workers.push(Worker::new(Arc::clone(&rx)));
+            }
+
+            ThreadPool {
+                workers,
+                tx,
+            }
+        }
+
+        pub fn spawn<F>(&self, f: F)
+        where
+            F: FnOnce() + Send + 'static,
+        {
+            self.tx.send(Message::New(Box::new(f))).unwrap();
+        }
+    }
+
+    impl Drop for ThreadPool {
+        fn drop(&mut self) {
+            for _ in &self.workers {
+                self.tx.send(Message::Terminate).unwrap();
+            }
+
+            for w in &mut self.workers {
+                if let Some(t) = w.thread.take() {
+                    t.join().unwrap();
+                }
+            }
+        }
+    }
+}
 
 struct Connection {
     stream: TcpStream,
@@ -297,19 +374,15 @@ impl Connection {
 fn main() -> std::io::Result<()> {
     let listener = TcpListener::bind("127.1.2.7:1935")?;
 
-    let (tx, rx) = mpsc::channel();
+    let pool = thread_pool::ThreadPool::new(1024);
+
     for stream in listener.incoming() {
         if let Ok(s) = stream {
-            let tx_ = mpsc::Sender::clone(&tx);
-            thread::spawn(move || {
+            pool.spawn(|| {
                 Connection::new(s).start();
-
-                tx_.send(0).unwrap();
             });
         }
     }
-
-    for _ in rx {}
 
     Ok(())
 }
