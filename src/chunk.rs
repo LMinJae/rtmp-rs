@@ -181,8 +181,11 @@ impl Chunk {
                 }
 
                 let rst = {
-                    let msg = self.cs_headers.get(&cs_id).unwrap().clone();
-                    self.process_message(msg.header.clone(), msg.payload.clone())
+                    let (header, payload) = {
+                        let msg = self.cs_headers.get(&cs_id).unwrap().clone();
+                        (msg.header.clone(), msg.payload.clone())
+                    };
+                    self.process_message(header, payload)
                 };
 
                 if let Some(msg) = self.cs_headers.get_mut(&cs_id) {
