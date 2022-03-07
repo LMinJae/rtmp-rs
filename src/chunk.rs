@@ -359,7 +359,10 @@ impl Chunk {
                 Ok(None)
             }
             message::Message::WindowAckSize { ack_window_size } => {
-                self.window_size = ack_window_size;
+                if self.window_size != ack_window_size {
+                    self.window_size = ack_window_size;
+                    self.push(2, message::Message::WindowAckSize { ack_window_size });
+                }
 
                 eprintln!("Receive: Server BW = {:}", ack_window_size);
                 Ok(None)
