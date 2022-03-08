@@ -571,7 +571,7 @@ impl Chunk {
         }
     }
 
-    fn parse_amf0_packet<R: Buf>(payload: R) -> amf::Array::<amf::Value> {
+    fn parse_amf0_packet<R: Buf>(payload: R) -> amf::Array<amf::Value> {
         let mut reader = payload.reader();
         let mut rst = amf::Array::<amf::Value>::new();
         while let Ok(v) = amf::amf0::decoder::from_bytes(&mut reader) {
