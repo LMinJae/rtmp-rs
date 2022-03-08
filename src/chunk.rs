@@ -164,7 +164,7 @@ impl Chunk {
             }
             if let State::ChunkMessageHeader { cs_id } = self.state {
                 if let Some(msg) = self.cs_headers.get_mut(&cs_id) {
-                    msg.header.timestamp += msg.header.timestamp_delta;
+                    msg.header.timestamp = msg.header.timestamp.wrapping_add(msg.header.timestamp_delta);
 
                     let length = msg.header.length as usize;
 
