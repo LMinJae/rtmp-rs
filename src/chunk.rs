@@ -530,10 +530,11 @@ impl Chunk {
         if 4 <= self.out_chunk_size {
             self.wr_buf.put(body);
         } else {
-            self.wr_buf.put(body.split_to(self.out_chunk_size as usize));
-            while 0 < body.len() {
+            while {
+                self.wr_buf.put(body.split_to(min(body.len(), self.out_chunk_size as usize)));
+                0 < body.len()
+            } {
                 Chunk::write_basic_header(&mut self.wr_buf, 3, cs_id);
-                self.wr_buf.put(body.split_to(min(body.len(), self.out_chunk_size as usize)))
             }
         }
     }
