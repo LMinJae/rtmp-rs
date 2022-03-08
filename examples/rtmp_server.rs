@@ -242,15 +242,113 @@ impl Connection {
                                     }
                                 };
                             }
-                            rtmp::message::Message::Audio { control, payload: _ } => {
-                                let _codec = control >> 4;
-                                let _rate = (control >> 2) & 3;
-                                let _size = (control >> 1) & 1;
-                                let _channel = control & 1;
+                            rtmp::message::Message::Audio { control, mut payload } => {
+                                let codec = control >> 4;
+                                let rate = (control >> 2) & 3;
+                                let size = (control >> 1) & 1;
+                                let channel = control & 1;
+                                eprintln!("Audio: {:?} {:?} {:?} {:?}", codec, rate, size, channel);
+                                let aac_packet_type = if 10 == codec {
+                                    payload.get_u8()
+                                } else {
+                                    0xFF
+                                };
+
+                                match codec {
+                                    10 => match aac_packet_type {
+                                        0 => {
+                                            eprintln!("[AAC] esds: AudioSpecificConfig");
+                                            let mut esds = payload;
+                                            {
+                                                let data_reference_index = esds.get_u16();
+                                                eprintln!("\tdata_reference_index: {:?}", data_reference_index);
+                                            }
+                                        }
+                                        1 => {
+                                            eprintln!("[AAC] Frame: {:02x?}", payload.chunk());
+                                        }
+                                        _ => {
+                                            eprintln!("{:02x?}", payload.chunk());
+                                        }
+                                    }
+                                    _ => {
+                                        eprintln!("Audio codec [{:?}] is not supported", codec);
+                                        eprintln!("{:02x?}", payload.chunk());
+                                    }
+                                }
                             }
-                            rtmp::message::Message::Video { control, payload: _ } => {
-                                let _frame = control >> 4;
-                                let _codec = control & 0xF;
+                            rtmp::message::Message::Video { control, mut payload } => {
+                                let frame = control >> 4;
+                                let codec = control & 0xF;
+                                eprintln!("Video: {:?} {:?}", frame, codec);
+                                let (avc_packet_type, composition_time) = if 7 == codec {
+                                    let t = payload.get_u8();
+                                    if 1 == t {
+                                        let mut s = 0_i32;
+                                        for i in payload.split_to(3).iter() {
+                                            s = s << 8 | (*i as i32);
+                                        }
+                                        (t, s)
+                                    } else {
+                                        (t, 0)
+                                    }
+                                } else {
+                                    (0xFF, 0)
+                                };
+                                if 7 == codec {
+                                    eprintln!("{:?} {:?}", avc_packet_type, composition_time);
+                                }
+                                match frame {
+                                    5 => {
+                                        eprintln!("{:?}", payload.get_u8());
+                                    }
+                                    _ => match codec {
+                                        7 => match avc_packet_type {
+                                            0 => {
+                                                eprintln!("[AVC] avcC: AVCDecoderConfigurationRecord: {:02x?}", payload.chunk());
+                                                {
+                                                    let _ = payload.split_to(3);
+
+                                                    let mut avc_c = payload;
+                                                    {
+                                                        let configuration_version = avc_c.get_u8();
+                                                        let profile_indication = avc_c.get_u8();
+                                                        let profile_compatibility = avc_c.get_u8();
+                                                        let level_indication = avc_c.get_u8();
+                                                        let length_size_minus_one = avc_c.get_u8() & 0b11;
+                                                        eprintln!("\tconfiguration_version: {:?}", configuration_version);
+                                                        eprintln!("\tprofile_indication: {:?}", profile_indication);
+                                                        eprintln!("\tprofile_compatibility: {:?}", profile_compatibility);
+                                                        eprintln!("\tlevel_indication: {:?}", level_indication);
+                                                        eprintln!("\tlength_size_minus_one: {:?}", length_size_minus_one);
+                                                        let nb_sps = avc_c.get_u8() & 0b11111;
+                                                        eprintln!("\tnb_sps: {:?}", nb_sps);
+                                                        for _ in 0..nb_sps {
+                                                            let len = avc_c.get_u16();
+                                                            eprintln!("\t\t{:x?}", avc_c.split_to(len as usize));
+                                                        }
+                                                        let nb_pps = avc_c.get_u8() & 0b11111;
+                                                        eprintln!("\tnb_pps: {:?}", nb_pps);
+                                                        for _ in 0..nb_pps {
+                                                            let len = avc_c.get_u16();
+                                                            eprintln!("\t\t{:x?}", avc_c.split_to(len as usize));
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            1 => {
+                                                eprintln!("[AVC] NALUs: {:02x?}", payload.chunk());
+                                            }
+                                            _ => {
+                                                eprintln!("{:02x?}", payload.chunk());
+                                            }
+                                        }
+                                        _ => {
+                                            eprintln!("Video codec [{:?}] is not supported", codec);
+                                            eprintln!("{:02x?}", payload.chunk());
+                                        }
+                                    }
+                                }
                             }
                             _ => {
                                 eprintln!("{:?}", msg)
