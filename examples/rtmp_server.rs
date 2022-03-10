@@ -242,12 +242,12 @@ impl Connection {
                                     }
                                 };
                             }
-                            rtmp::message::Message::Audio { control, mut payload } => {
+                            rtmp::message::Message::Audio { delta, control, mut payload } => {
                                 let codec = control >> 4;
                                 let rate = (control >> 2) & 3;
                                 let size = (control >> 1) & 1;
                                 let channel = control & 1;
-                                eprintln!("Audio: 0x{:02x?}({:?} {:?} {:?} {:?})", control, codec, rate, size, channel);
+                                eprintln!("Audio({:?}): 0x{:02x?}({:?} {:?} {:?} {:?})", delta, control, codec, rate, size, channel);
 
                                 match codec {
                                     10 => {
@@ -275,32 +275,29 @@ impl Connection {
                                     }
                                 }
                             }
-                            rtmp::message::Message::Video { control, mut payload } => {
+                            rtmp::message::Message::Video { delta, control, mut payload } => {
                                 let frame = control >> 4;
                                 let codec = control & 0xF;
-                                eprintln!("Video: 0x{:02x?}({:?} {:?})", control, frame, codec);
+                                eprintln!("Video({:?}): 0x{:02x?}({:?} {:?})", delta, control, frame, codec);
                                 let (avc_packet_type, composition_time) = if 7 == codec {
                                     let t = payload.get_u8();
+                                    let mut s = 0_i32;
                                     if 1 == t {
-                                        let mut s = 0_i32;
                                         for i in payload.split_to(3).iter() {
                                             s = s << 8 | (*i as i32);
                                         }
-                                        (t, s)
-                                    } else {
-                                        (t, 0)
                                     }
+                                    (t, s)
                                 } else {
                                     (0xFF, 0)
                                 };
                                 if 7 == codec {
                                     eprintln!("{:?} {:?}", avc_packet_type, composition_time);
                                 }
-                                match frame {
-                                    5 => {
-                                        eprintln!("{:?}", payload.get_u8());
-                                    }
-                                    _ => match codec {
+                                if 5 == frame {
+                                    eprintln!("{:?}", payload.get_u8());
+                                } else {
+                                    match codec {
                                         7 => match avc_packet_type {
                                             0 => {
                                                 eprintln!("[AVC] avcC: AVCDecoderConfigurationRecord: {:02x?}", payload.chunk());
@@ -331,30 +328,13 @@ impl Connection {
                                                             let len = avc_c.get_u16();
                                                             eprintln!("\t\t{:x?}", avc_c.split_to(len as usize));
                                                         }
-
-                                                        if 100 == profile_indication || 110 == profile_indication ||
-                                                            122 == profile_indication || 144 == profile_indication {
-                                                            let chroma_format = avc_c.get_u8() & 0b11;
-                                                            let bit_depth_luma_minus8 = avc_c.get_u8() & 0b111;
-                                                            let bit_depth_chroma_minus8 = avc_c.get_u8() & 0b111;
-                                                            let nb_sps_ext = avc_c.get_u8() & 0b11111;
-                                                            let mut sps_ext = Vec::with_capacity(nb_sps_ext as usize);
-                                                            for _ in 0..nb_sps_ext {
-                                                                let len = avc_c.get_u16();
-                                                                sps_ext.push(avc_c.split_to(len as usize));
-                                                            }
-
-                                                            eprintln!("\t\t{:x?}", (chroma_format, bit_depth_luma_minus8, bit_depth_chroma_minus8, sps_ext));
-                                                        }
                                                     }
                                                 }
                                             }
                                             1 => {
                                                 eprintln!("[AVC] NALUs: {:02x?}", payload.chunk());
                                             }
-                                            _ => {
-                                                eprintln!("{:02x?}", payload.chunk());
-                                            }
+                                            _ => unreachable!()
                                         }
                                         _ => {
                                             eprintln!("Video codec [{:?}] is not supported", codec);

@@ -136,8 +136,8 @@ pub enum Message {
     Data { payload: amf::Array<amf::Value> },
     SharedObject { header: Header, payload: BytesMut },
 
-    Audio { control: u8, payload: BytesMut },
-    Video { control: u8, payload: BytesMut },
+    Audio { delta: u32, control: u8, payload: BytesMut },
+    Video { delta: u32, control: u8, payload: BytesMut },
 
     Aggregate(Vec<Message>),
 

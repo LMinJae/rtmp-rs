@@ -288,10 +288,10 @@ impl Chunk {
                 message::Message::Data { payload: rst }
             }
             message::msg_type::AUDIO => {
-                message::Message::Audio { control: payload.get_u8(), payload }
+                message::Message::Audio { delta: header.timestamp_delta, control: payload.get_u8(), payload }
             }
             message::msg_type::VIDEO => {
-                message::Message::Video { control: payload.get_u8(), payload }
+                message::Message::Video { delta: header.timestamp_delta, control: payload.get_u8(), payload }
             }
             message::msg_type::AGGREGATE => {
                 let mut rst = Vec::<message::Message>::new();
