@@ -44,7 +44,7 @@ mod thread_pool {
         workers: Vec<Worker>,
         tx: mpsc::Sender<Message>,
     }
-    
+
     impl ThreadPool {
         pub fn new(size: usize) -> Self {
             let (tx, rx) = mpsc::channel();
@@ -62,8 +62,8 @@ mod thread_pool {
         }
 
         pub fn spawn<F>(&self, f: F)
-        where
-            F: FnOnce() + Send + 'static,
+            where
+                F: FnOnce() + Send + 'static,
         {
             self.tx.send(Message::New(Box::new(f))).unwrap();
         }
@@ -247,40 +247,38 @@ impl Connection {
                                 let rate = (control >> 2) & 3;
                                 let size = (control >> 1) & 1;
                                 let channel = control & 1;
-                                eprintln!("Audio: {:?} {:?} {:?} {:?}", codec, rate, size, channel);
-                                let aac_packet_type = if 10 == codec {
-                                    payload.get_u8()
-                                } else {
-                                    0xFF
-                                };
+                                eprintln!("Audio: 0x{:02x?}({:?} {:?} {:?} {:?})", control, codec, rate, size, channel);
 
                                 match codec {
-                                    10 => match aac_packet_type {
-                                        0 => {
-                                            eprintln!("[AAC] esds: AudioSpecificConfig");
-                                            let mut esds = payload;
-                                            {
-                                                let data_reference_index = esds.get_u16();
-                                                eprintln!("\tdata_reference_index: {:?}", data_reference_index);
+                                    10 => {
+                                        let aac_packet_type = payload.get_u8();
+                                        match aac_packet_type {
+                                            0 => {
+                                                eprintln!("[AAC] esds: AudioSpecificConfig");
+                                                let mut esds = payload;
+                                                {
+                                                    let data_reference_index = esds.get_u16();
+                                                    eprintln!("\tdata_reference_index: {:?}", data_reference_index);
+                                                }
                                             }
-                                        }
-                                        1 => {
-                                            eprintln!("[AAC] Frame: {:02x?}", payload.chunk());
-                                        }
-                                        _ => {
-                                            eprintln!("{:02x?}", payload.chunk());
+                                            1 => {
+                                                eprintln!("[AAC] Frame: {:02x?}", payload.chunk());
+                                            }
+                                            _ => {
+                                                eprintln!("{:02x?}", payload.chunk());
+                                            }
                                         }
                                     }
                                     _ => {
-                                        eprintln!("Audio codec [{:?}] is not supported", codec);
-                                        eprintln!("{:02x?}", payload.chunk());
+                                        eprintln ! ("Audio codec [{:?}] is not supported", codec);
+                                        eprintln !("{:02x?}", payload.chunk());
                                     }
                                 }
                             }
                             rtmp::message::Message::Video { control, mut payload } => {
                                 let frame = control >> 4;
                                 let codec = control & 0xF;
-                                eprintln!("Video: {:?} {:?}", frame, codec);
+                                eprintln!("Video: 0x{:02x?}({:?} {:?})", control, frame, codec);
                                 let (avc_packet_type, composition_time) = if 7 == codec {
                                     let t = payload.get_u8();
                                     if 1 == t {
@@ -332,6 +330,21 @@ impl Connection {
                                                         for _ in 0..nb_pps {
                                                             let len = avc_c.get_u16();
                                                             eprintln!("\t\t{:x?}", avc_c.split_to(len as usize));
+                                                        }
+
+                                                        if 100 == profile_indication || 110 == profile_indication ||
+                                                            122 == profile_indication || 144 == profile_indication {
+                                                            let chroma_format = avc_c.get_u8() & 0b11;
+                                                            let bit_depth_luma_minus8 = avc_c.get_u8() & 0b111;
+                                                            let bit_depth_chroma_minus8 = avc_c.get_u8() & 0b111;
+                                                            let nb_sps_ext = avc_c.get_u8() & 0b11111;
+                                                            let mut sps_ext = Vec::with_capacity(nb_sps_ext as usize);
+                                                            for _ in 0..nb_sps_ext {
+                                                                let len = avc_c.get_u16();
+                                                                sps_ext.push(avc_c.split_to(len as usize));
+                                                            }
+
+                                                            eprintln!("\t\t{:x?}", (chroma_format, bit_depth_luma_minus8, bit_depth_chroma_minus8, sps_ext));
                                                         }
                                                     }
                                                 }
