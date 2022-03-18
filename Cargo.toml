@@ -6,12 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wyrng = { path = "cargos/wyrng", version = "0.1.0" }
+wyrng = { git = "https://github.com/LMinJae/wyrng-rs" }
 bytes = "1.1.0"
 
 [dependencies.amf]
-path = "cargos/amf"
-version = "0.1.0"
+git = "https://github.com/LMinJae/amf-rs"
 default-features = false
 features = [
     "amf0-number",
