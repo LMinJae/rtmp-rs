@@ -69,6 +69,21 @@ impl Header {
     }
 }
 
+#[derive(Debug)]
+pub struct MessageStream {
+    pub stream_id: u32,
+    pub msg: Message,
+}
+
+impl MessageStream {
+    pub fn new(stream_id: u32, msg: Message) -> Self {
+        Self {
+            stream_id,
+            msg,
+        }
+    }
+}
+
 pub const TIMESTAMP_MAX             : u32 = 0xFFFFFF;
 
 pub mod msg_type {

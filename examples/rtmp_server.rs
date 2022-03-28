@@ -173,7 +173,7 @@ impl Connection {
                     Ok(None) => {
                         break
                     }
-                    Ok(Some(msg)) => {
+                    Ok(Some(rtmp::message::MessageStream{ stream_id: _stream_id, msg})) => {
                         match msg {
                             rtmp::message::Message::SetChunkSize { chunk_size } => {
                                 if 1 + chunk_size as usize > buf.capacity() {

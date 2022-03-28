@@ -76,7 +76,7 @@ impl Chunk {
         }
     }
 
-    pub fn poll(&mut self) -> Result<Option<message::Message>, ChunkError> {
+    pub fn poll(&mut self) -> Result<Option<message::MessageStream>, ChunkError> {
         loop {
             if let State::Uninitialized = self.state {
                 if 0 == self.rd_buf.len() {
@@ -198,7 +198,7 @@ impl Chunk {
         }
     }
 
-    fn process_message(&mut self, header: message::Header, mut payload: BytesMut) -> Result<Option<message::Message>, ChunkError> {
+    fn process_message(&mut self, header: message::Header, mut payload: BytesMut) -> Result<Option<message::MessageStream>, ChunkError> {
         let msg = match header.type_id {
             message::msg_type::SET_CHUNK_SIZE => {
                 let chunk_size = payload.get_i32();
@@ -321,8 +321,8 @@ impl Chunk {
                     let _back_pointer = payload.get_u32();
 
                     match self.process_message(sub.header, sub.payload) {
-                        Ok(Some(m)) => {
-                            rst.append(&mut vec!(m));
+                        Ok(Some(message::MessageStream { msg, .. })) => {
+                            rst.append(&mut vec!(msg));
                         },
                         Ok(None) => {}
                         Err(e) => return Err(e)
@@ -345,7 +345,7 @@ impl Chunk {
                     self.rd_buf.reserve((self.in_chunk_size as usize) - self.rd_buf.capacity())
                 }
 
-                Ok(Some(message::Message::SetChunkSize { chunk_size }))
+                Ok(Some(message::MessageStream::new(header.stream_id, message::Message::SetChunkSize { chunk_size })))
             }
             message::Message::Abort { chunk_stream_id } => {
                 if let Some(msg) = self.cs_headers.get_mut(&chunk_stream_id) {
@@ -384,7 +384,7 @@ impl Chunk {
 
                 Ok(None)
             }
-            _ => Ok(Some(msg))
+            _ => Ok(Some(message::MessageStream::new(header.stream_id, msg)))
         }
     }
 
