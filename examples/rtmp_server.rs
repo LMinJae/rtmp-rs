@@ -242,12 +242,12 @@ impl Connection {
                                     }
                                 };
                             }
-                            rtmp::message::Message::Audio { delta, control, mut payload } => {
+                            rtmp::message::Message::Audio { dts, control, mut payload } => {
                                 let codec = control >> 4;
                                 let rate = (control >> 2) & 3;
                                 let size = (control >> 1) & 1;
                                 let channel = control & 1;
-                                eprintln!("Audio({:?}): 0x{:02x?}({:?} {:?} {:?} {:?})", delta, control, codec, rate, size, channel);
+                                eprintln!("Audio({:?}): 0x{:02x?}({:?} {:?} {:?} {:?})", dts, control, codec, rate, size, channel);
 
                                 match codec {
                                     10 => {
@@ -275,10 +275,10 @@ impl Connection {
                                     }
                                 }
                             }
-                            rtmp::message::Message::Video { delta, control, mut payload } => {
+                            rtmp::message::Message::Video { dts, control, mut payload } => {
                                 let frame = control >> 4;
                                 let codec = control & 0xF;
-                                eprintln!("Video({:?}): 0x{:02x?}({:?} {:?})", delta, control, frame, codec);
+                                eprintln!("Video({:?}): 0x{:02x?}({:?} {:?})", dts, control, frame, codec);
                                 let (avc_packet_type, composition_time) = if 7 == codec {
                                     let t = payload.get_u8();
                                     let mut s = 0_i32;
